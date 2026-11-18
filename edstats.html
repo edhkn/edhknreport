@@ -1,0 +1,2715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ETD Auto-Analysis &amp; Google Sheets Backend (edstats.html)</title>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+
+  <!-- SheetJS (XLSX Parser & Exporter) -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+
+  <!-- Chart.js (Interactive Statistical Charts) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+  <!-- jsPDF & jsPDF-AutoTable (Automatic PDPA PDF Report Generator) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
+  <style>
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+    /* Custom subtle scrollbars for tables and heatmaps */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen pb-16 antialiased">
+
+  <!-- Drag & Drop Fullscreen Overlay -->
+  <div id="dragOverlay" class="hidden fixed inset-0 z-50 bg-blue-950/75 backdrop-blur-sm flex items-center justify-center p-6 pointer-events-none">
+    <div class="bg-white rounded-2xl p-8 max-w-md w-full text-center shadow-2xl border-2 border-dashed border-blue-500">
+      <div class="w-14 h-14 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+        <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+        </svg>
+      </div>
+      <h3 class="text-xl font-bold text-slate-900">Drop Excel File to Auto-Analyze</h3>
+      <p class="text-sm text-slate-500 mt-1.5">
+        Automatically computes clinical KPIs, creates a new sheet tab in Google Sheets, and downloads your PDPA PDF report.
+      </p>
+    </div>
+  </div>
+
+  <!-- Sticky Top Navigation Header -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3.5">
+      <!-- Brand & Active Dataset Info -->
+      <div>
+        <div class="flex items-center gap-2.5">
+          <div class="p-2 bg-blue-600 text-white rounded-xl shadow-sm">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M22 12h-4l-3 9L9 3l-3 9H2" />
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight">
+              ETD Auto-Analysis &amp; Google Sheets Engine
+            </h1>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-2 mt-1.5 text-xs text-slate-500">
+          <span class="inline-flex items-center gap-1.5 font-semibold bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded-lg">
+            <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <span id="headerFileName">Demo_ETD_Oct2026.xlsx</span>
+          </span>
+
+          <select id="sheetSelector" class="hidden bg-blue-50 text-blue-800 border border-blue-200 rounded-lg px-2 py-0.5 font-semibold text-xs outline-none"></select>
+
+          <span id="headerPeriod" class="text-slate-500"></span>
+
+          <span class="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg font-semibold">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+            PDPA Scrubbed
+          </span>
+        </div>
+      </div>
+
+      <!-- Primary Toolbar Actions -->
+      <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+        <button id="btnToggleSheetsPanel" type="button" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold border transition-colors bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300">
+          <span id="gsStatusDot" class="w-2 h-2 rounded-full bg-amber-500"></span>
+          Google Sheet Backend
+        </button>
+
+        <button id="btnToggleMapper" type="button" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+          </svg>
+          Columns
+        </button>
+
+        <button id="btnLoadDemo" type="button" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors">
+          Demo Data
+        </button>
+
+        <button id="btnManualPdf" type="button" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-slate-800 hover:bg-slate-900 text-white transition-colors shadow-sm">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          Export PDF
+        </button>
+
+        <label class="relative flex-1 sm:flex-none cursor-pointer">
+          <input id="excelFileInput" type="file" accept=".xlsx,.xls,.csv" class="sr-only" />
+          <span class="w-full inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-bold transition-colors text-xs sm:text-sm shadow-sm">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            Upload Excel (Auto-Analyze)
+          </span>
+        </label>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Workspace Container -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 mt-5 space-y-5">
+
+    <!-- Status & Notification Banners -->
+    <div id="statusBannerContainer" class="space-y-3"></div>
+
+    <!-- Collapsible Google Sheets Backend Configuration & History Panel -->
+    <section id="googleSheetsPanel" class="bg-white border border-emerald-200 rounded-2xl p-5 shadow-sm space-y-4">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-3.5">
+        <div>
+          <div class="flex items-center gap-2">
+            <h2 class="text-base font-bold text-slate-900">Google Sheets Backend Integration (New Sheet Per Analysis)</h2>
+            <span id="gsBadge" class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800">
+              Setup Required
+            </span>
+          </div>
+          <p class="text-xs text-slate-500 mt-0.5">
+            Target Spreadsheet:
+            <a href="https://docs.google.com/spreadsheets/d/1fBVDhsmO7DAZht69Ra45zbM71Fx-Obf80WkI8CvsgIc/edit?gid=0#gid=0" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline font-mono font-semibold">
+              1fBVDhsmO7DAZht69Ra45zbM71Fx-Obf80WkI8CvsgIc
+            </a>
+            — Every uploaded Excel analysis creates a brand-new tab automatically.
+          </p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <a href="https://docs.google.com/spreadsheets/d/1fBVDhsmO7DAZht69Ra45zbM71Fx-Obf80WkI8CvsgIc/edit?gid=0#gid=0" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 transition-colors">
+            Open Google Sheet ↗
+          </a>
+          <button id="btnSyncNow" type="button" class="inline-flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition-colors shadow-sm">
+            Push Current Analysis to New Sheet Tab
+          </button>
+        </div>
+      </div>
+
+      <!-- Connection Mode Tabs -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <!-- Left 7 Cols: Connection Configuration -->
+        <div class="lg:col-span-7 space-y-3.5">
+          <div class="flex flex-wrap items-center gap-2">
+            <button id="modeAppsScriptBtn" type="button" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 text-white">
+              Method 1: Apps Script Web App URL (Recommended)
+            </button>
+            <button id="modeOauthApiBtn" type="button" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200">
+              Method 2: Google Sheets API v4 (OAuth Token)
+            </button>
+          </div>
+
+          <!-- Method 1 Form: Apps Script Web App -->
+          <div id="appsScriptConfigBox" class="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <div>
+              <label for="appsScriptUrlInput" class="block text-xs font-bold text-slate-700 mb-1">
+                Google Apps Script Web App URL (<code class="text-blue-700">https://script.google.com/macros/s/.../exec</code>)
+              </label>
+              <div class="flex flex-col sm:flex-row gap-2">
+                <input id="appsScriptUrlInput" type="url" placeholder="Paste your deployed Apps Script Web App URL here..." class="flex-1 text-xs border border-slate-300 rounded-xl px-3 py-2.5 bg-white focus:border-blue-500 outline-none" />
+                <button id="btnConnectAppsScript" type="button" class="px-4 py-2.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors shrink-0">
+                  Connect &amp; Load Sheets
+                </button>
+              </div>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+              <label class="inline-flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                <input id="autoSyncCheckbox" type="checkbox" checked class="rounded text-blue-600 focus:ring-blue-500" />
+                Automatically create a new Google Sheet tab on every Excel upload
+              </label>
+
+              <button id="btnDownloadConfiguredHtml" type="button" class="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg border border-blue-200 transition-colors" title="Downloads a copy of edstats.html with your Web App URL permanently saved inside">
+                Save Configured edstats.html
+              </button>
+            </div>
+          </div>
+
+          <!-- Method 2 Form: Direct OAuth Token -->
+          <div id="oauthApiConfigBox" class="hidden space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <div>
+              <label for="oauthTokenInput" class="block text-xs font-bold text-slate-700 mb-1">
+                Google OAuth 2.0 Bearer Access Token (Scope: <code class="text-blue-700">spreadsheets</code>)
+              </label>
+              <div class="flex flex-col sm:flex-row gap-2">
+                <input id="oauthTokenInput" type="password" placeholder="ya29.a0AfH6SM..." class="flex-1 text-xs border border-slate-300 rounded-xl px-3 py-2.5 bg-white focus:border-blue-500 outline-none" />
+                <button id="btnConnectOauth" type="button" class="px-4 py-2.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors shrink-0">
+                  Verify Token &amp; List Tabs
+                </button>
+              </div>
+            </div>
+            <p class="text-[11px] text-slate-500">
+              Directly calls <code class="bg-white px-1 rounded">spreadsheets.batchUpdate (addSheet)</code> and <code class="bg-white px-1 rounded">spreadsheets.values.update</code> on spreadsheet <code class="bg-white px-1 rounded">1fBVDhsmO7DAZht69Ra45zbM71Fx-Obf80WkI8CvsgIc</code>.
+            </p>
+          </div>
+
+          <!-- Existing Analysis Tabs Browser (Two-Way Backend Sync) -->
+          <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div class="flex-1">
+              <div class="text-xs font-bold text-slate-700">Load Past Analysis Sheet from Google Sheets</div>
+              <div id="remoteSheetsHint" class="text-[11px] text-slate-500">Connect above to browse existing tabs inside your Google Sheet.</div>
+            </div>
+            <div class="flex items-center gap-2">
+              <select id="remoteSheetSelect" class="text-xs border border-slate-300 rounded-xl px-2.5 py-2 bg-white min-w-[180px] outline-none">
+                <option value="">-- No remote tabs loaded --</option>
+              </select>
+              <button id="btnLoadRemoteSheet" type="button" class="px-3 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-900 text-white transition-colors">
+                Load Tab
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right 5 Cols: 1-Click Copyable Apps Script Setup Guide -->
+        <div class="lg:col-span-5 bg-slate-900 text-slate-100 rounded-xl p-4 flex flex-col justify-between space-y-3">
+          <div>
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-xs font-bold uppercase tracking-wider text-emerald-400">1-Minute Backend Setup</span>
+              <button id="btnCopyAppsScript" type="button" class="px-3 py-1 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors">
+                Copy Apps Script Code
+              </button>
+            </div>
+            <ol class="text-xs text-slate-300 space-y-1.5 mt-2.5 list-decimal list-inside leading-relaxed">
+              <li>Open your Google Sheet and click <strong>Extensions &rarr; Apps Script</strong>.</li>
+              <li>Paste the copied script (already bound to ID <code class="text-emerald-300">1fBVDhsmO7DAZht69Ra45zbM71Fx-Obf80WkI8CvsgIc</code>).</li>
+              <li>Click <strong>Deploy &rarr; New deployment &rarr; Web app</strong> (Execute as: <em>Me</em>, Access: <em>Anyone</em>).</li>
+              <li>Paste the Web App URL on the left &amp; click <strong>Connect</strong>.</li>
+            </ol>
+          </div>
+          <pre id="appsScriptPreview" class="text-[10px] leading-snug bg-slate-950 text-slate-300 p-2.5 rounded-lg overflow-x-auto max-h-28 border border-slate-800 font-mono"></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- Collapsible Smart Column Mapping Drawer -->
+    <section id="columnMapperPanel" class="hidden bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+        <div>
+          <h3 class="font-bold text-sm text-slate-900">Detected Excel Schema &amp; Column Mapping</h3>
+          <p class="text-xs text-slate-500">
+            Reassign any column below if your spreadsheet uses custom headers. Dashboard metrics recalculate immediately.
+          </p>
+        </div>
+        <button id="btnApplyMapping" type="button" class="text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-xl">
+          Re-Analyze &amp; Sync
+        </button>
+      </div>
+      <div id="mappingSelectGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
+    </section>
+
+    <!-- Interactive Slice & Filter Controls -->
+    <section class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-600">
+          <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+          </svg>
+          Dynamic Slice &amp; Filter Controls
+          <span id="activeFilterBadge" class="hidden bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-full text-[11px] font-bold"></span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <!-- Median vs Mean Toggle -->
+          <div class="inline-flex rounded-xl bg-slate-100 p-0.5 text-xs">
+            <button id="btnLosMedian" type="button" class="px-3 py-1 rounded-lg font-bold bg-white text-slate-900 shadow-sm transition-colors">
+              Median LOS
+            </button>
+            <button id="btnLosMean" type="button" class="px-3 py-1 rounded-lg font-bold text-slate-600 transition-colors">
+              Mean LOS
+            </button>
+          </div>
+
+          <button id="btnResetFilters" type="button" class="hidden inline-flex items-center gap-1 text-xs font-bold text-red-600 hover:bg-red-50 px-2.5 py-1.5 rounded-xl transition-colors">
+            Reset Filters
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
+        <select id="filterZone" class="text-xs border border-slate-300 rounded-xl px-3 py-2.5 bg-slate-50 focus:bg-white outline-none">
+          <option value="ALL">All Clinical Zones</option>
+        </select>
+        <select id="filterShift" class="text-xs border border-slate-300 rounded-xl px-3 py-2.5 bg-slate-50 focus:bg-white outline-none">
+          <option value="ALL">All Roster Shifts</option>
+          <option value="Morning (08:00–14:59)">Morning (08:00–14:59)</option>
+          <option value="Evening (15:00–21:59)">Evening (15:00–21:59)</option>
+          <option value="Night (22:00–07:59)">Night (22:00–07:59)</option>
+        </select>
+        <select id="filterAge" class="text-xs border border-slate-300 rounded-xl px-3 py-2.5 bg-slate-50 focus:bg-white outline-none">
+          <option value="ALL">All Age Groups</option>
+        </select>
+        <select id="filterVisit" class="text-xs border border-slate-300 rounded-xl px-3 py-2.5 bg-slate-50 focus:bg-white outline-none">
+          <option value="ALL">All Visit Types</option>
+        </select>
+        <input id="filterSearch" type="text" placeholder="Search Encounter ID, Bed, Race..." class="text-xs border border-slate-300 rounded-xl px-3 py-2.5 bg-slate-50 focus:bg-white outline-none" />
+      </div>
+    </section>
+
+    <!-- 6 Executive KPI Summary Cards -->
+    <section id="kpiGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5"></section>
+
+    <!-- Interactive View Navigation Tabs -->
+    <nav class="bg-white rounded-2xl border border-slate-200 p-1.5 flex flex-wrap gap-1.5 shadow-sm">
+      <button data-tab="overview" class="tab-btn flex-1 min-w-[160px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold bg-slate-900 text-white shadow-sm transition-all">
+        Overview &amp; Surge Heatmap
+      </button>
+      <button data-tab="zones" class="tab-btn flex-1 min-w-[160px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-slate-100 transition-all">
+        Zones &amp; Bed Utilization
+      </button>
+      <button data-tab="demographics" class="tab-btn flex-1 min-w-[160px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-slate-100 transition-all">
+        Demographics &amp; Repeat Audit
+      </button>
+      <button data-tab="data" id="tabBtnData" class="tab-btn flex-1 min-w-[160px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-slate-100 transition-all">
+        PDPA-Cleaned Data
+      </button>
+    </nav>
+
+    <!-- TAB 1: OVERVIEW & SURGE HEATMAP -->
+    <section id="tab-overview" class="tab-panel space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <h3 class="text-base font-bold text-slate-900">Encounter Volume by Clinical Zone</h3>
+          <p class="text-xs text-slate-500 mb-3">Click any zone bar to filter the entire dashboard.</p>
+          <div class="relative h-72 w-full">
+            <canvas id="chartZoneVolume"></canvas>
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <h3 id="chartZoneLosTitle" class="text-base font-bold text-slate-900">Median Turnaround Time (Hours) by Zone</h3>
+          <p class="text-xs text-slate-500 mb-3">Dashed red line indicates the standard 4.0-hour ETD target.</p>
+          <div class="relative h-72 w-full">
+            <canvas id="chartZoneLos"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+        <h3 class="text-base font-bold text-slate-900">24-Hour Arrival Volume &amp; Turnaround Overlay</h3>
+        <p class="text-xs text-slate-500 mb-3">Hourly arrivals (bars) paired with turnaround duration (line) across the 24-hour cycle.</p>
+        <div class="relative h-72 w-full">
+          <canvas id="chartHourlyCombo"></canvas>
+        </div>
+      </div>
+
+      <!-- Day of Week x Hour of Day Heatmap -->
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+          <div>
+            <h3 class="text-base font-bold text-slate-900">Arrival Surge Heatmap (Day of Week &times; Hour of Day)</h3>
+            <p class="text-xs text-slate-500">Highlights peak weekly arrival surges for roster and triage counter planning.</p>
+          </div>
+          <div class="flex items-center gap-1.5 text-[11px] text-slate-500">
+            <span>Low</span>
+            <span class="w-4 h-3 rounded bg-amber-50 border border-slate-200"></span>
+            <span class="w-4 h-3 rounded bg-amber-200"></span>
+            <span class="w-4 h-3 rounded bg-orange-400"></span>
+            <span class="w-4 h-3 rounded bg-red-600"></span>
+            <span id="heatmapPeakLabel">Peak</span>
+          </div>
+        </div>
+        <div id="heatmapContainer" class="min-w-[760px]"></div>
+      </div>
+    </section>
+
+    <!-- TAB 2: ZONES & BED UTILIZATION -->
+    <section id="tab-zones" class="tab-panel hidden space-y-6">
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
+        <div class="p-5 border-b border-slate-100">
+          <h3 class="text-base font-bold text-slate-900">Clinical Zone Performance Matrix</h3>
+          <p class="text-xs text-slate-500">Turnaround distribution and 4-hour / 6-hour breach rates by clinical zone.</p>
+        </div>
+        <table class="w-full text-left border-collapse text-xs sm:text-sm">
+          <thead>
+            <tr class="bg-slate-50 text-slate-600 border-b border-slate-200">
+              <th class="py-3 px-4 font-bold">Clinical Zone</th>
+              <th class="py-3 px-4 font-bold text-right">Encounters</th>
+              <th class="py-3 px-4 font-bold text-right">Share</th>
+              <th class="py-3 px-4 font-bold text-right">Mean LOS</th>
+              <th class="py-3 px-4 font-bold text-right">Median LOS</th>
+              <th class="py-3 px-4 font-bold text-right">IQR (25–75%)</th>
+              <th class="py-3 px-4 font-bold text-right">&gt; 4 Hours</th>
+              <th class="py-3 px-4 font-bold text-right">&gt; 6 Hours</th>
+            </tr>
+          </thead>
+          <tbody id="tableZoneBody" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
+          <div class="p-5 border-b border-slate-100">
+            <h3 class="text-base font-bold text-slate-900">Operational Shift Performance</h3>
+          </div>
+          <table class="w-full text-left border-collapse text-xs sm:text-sm">
+            <thead>
+              <tr class="bg-slate-50 text-slate-600 border-b border-slate-200">
+                <th class="py-3 px-4 font-bold">Shift Window</th>
+                <th class="py-3 px-4 font-bold text-right">Encounters</th>
+                <th class="py-3 px-4 font-bold text-right">Share</th>
+                <th class="py-3 px-4 font-bold text-right">Mean LOS</th>
+                <th class="py-3 px-4 font-bold text-right">Median LOS</th>
+              </tr>
+            </thead>
+            <tbody id="tableShiftBody" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <h3 class="text-base font-bold text-slate-900">Top 15 Highest-Turnover Beds</h3>
+          <p class="text-xs text-slate-500 mb-3">Individual bays ranked by total patient encounters handled.</p>
+          <div class="relative h-72 w-full">
+            <canvas id="chartTopBeds"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: DEMOGRAPHICS & REPEAT-VISITOR AUDIT -->
+    <section id="tab-demographics" class="tab-panel hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <h3 id="ageChartTitle" class="text-base font-bold text-slate-900">Age Bracket Distribution</h3>
+          <p class="text-xs text-slate-500 mb-3">Click any age segment to filter the entire dashboard.</p>
+          <div class="relative h-72 w-full">
+            <canvas id="chartAgeDonut"></canvas>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
+          <div class="p-5 border-b border-slate-100">
+            <h3 class="text-base font-bold text-slate-900">Turnaround Time by Age Cohort</h3>
+          </div>
+          <table class="w-full text-left border-collapse text-xs sm:text-sm">
+            <thead>
+              <tr class="bg-slate-50 text-slate-600 border-b border-slate-200">
+                <th class="py-3 px-4 font-bold">Age Bracket</th>
+                <th class="py-3 px-4 font-bold text-right">Visits</th>
+                <th class="py-3 px-4 font-bold text-right">Share</th>
+                <th class="py-3 px-4 font-bold text-right">Mean LOS</th>
+                <th class="py-3 px-4 font-bold text-right">Median LOS</th>
+              </tr>
+            </thead>
+            <tbody id="tableAgeBody" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
+          <div class="p-5 border-b border-slate-100">
+            <h3 class="text-base font-bold text-slate-900">Race / Citizenship Breakdown</h3>
+          </div>
+          <table class="w-full text-left border-collapse text-xs sm:text-sm">
+            <thead>
+              <tr class="bg-slate-50 text-slate-600 border-b border-slate-200">
+                <th class="py-3 px-4 font-bold">Race / Status</th>
+                <th class="py-3 px-4 font-bold text-right">Encounters</th>
+                <th class="py-3 px-4 font-bold text-right">Share</th>
+                <th class="py-3 px-4 font-bold text-right">Median LOS</th>
+              </tr>
+            </thead>
+            <tbody id="tableRaceBody" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+          <div>
+            <h3 class="text-base font-bold text-slate-900">Visit Classification &amp; Repeat-Visitor Audit (PDPA-Safe)</h3>
+            <p class="text-xs text-slate-500">Repeat-visitor counts computed in memory without exposing patient names.</p>
+          </div>
+          <div id="repeatVisitorCards" class="grid grid-cols-3 gap-3"></div>
+          <table class="w-full text-left border-collapse text-xs sm:text-sm">
+            <thead>
+              <tr class="bg-slate-50 text-slate-600 border-b border-slate-200">
+                <th class="py-2.5 px-3 font-bold">Visit Classification</th>
+                <th class="py-2.5 px-3 font-bold text-right">Encounters</th>
+                <th class="py-2.5 px-3 font-bold text-right">Share</th>
+                <th class="py-2.5 px-3 font-bold text-right">Median LOS</th>
+              </tr>
+            </thead>
+            <tbody id="tableVisitBody" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: PDPA-CLEANED DATASET EXPLORER -->
+    <section id="tab-data" class="tab-panel hidden bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div class="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h3 id="cleanedTableTitle" class="text-base font-bold text-slate-900">Cleaned &amp; PDPA-Anonymized Dataset</h3>
+          <p class="text-xs text-slate-500">Direct identifiers (Patient Name) and empty admission columns removed.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button id="btnExportCsv" type="button" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-900 text-white transition-colors">
+            Download Cleaned CSV
+          </button>
+          <button id="btnExportXlsx" type="button" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors">
+            Download Multi-Sheet Excel (.xlsx)
+          </button>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="bg-slate-50 text-slate-600 border-b border-slate-200">
+              <th class="py-2.5 px-3 font-bold">Encounter Id</th>
+              <th class="py-2.5 px-3 font-bold">Bed No.</th>
+              <th class="py-2.5 px-3 font-bold">Zone</th>
+              <th class="py-2.5 px-3 font-bold">Encounter Date</th>
+              <th class="py-2.5 px-3 font-bold">Discharge Date</th>
+              <th class="py-2.5 px-3 font-bold text-right">LOS (mins)</th>
+              <th class="py-2.5 px-3 font-bold text-right">LOS (hrs)</th>
+              <th class="py-2.5 px-3 font-bold">Shift</th>
+              <th class="py-2.5 px-3 font-bold">Age Group</th>
+              <th class="py-2.5 px-3 font-bold">Visit</th>
+            </tr>
+          </thead>
+          <tbody id="cleanedTableBody" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+
+      <div class="px-4 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-600">
+        <span id="paginationInfo">Showing 0–0 of 0</span>
+        <div class="flex items-center gap-2">
+          <button id="btnPrevPage" type="button" class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white disabled:opacity-40 font-bold">Previous</button>
+          <span id="pageNumberText" class="font-bold">Page 1 of 1</span>
+          <button id="btnNextPage" type="button" class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white disabled:opacity-40 font-bold">Next</button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ====================================================================== -->
+  <!-- APPLICATION LOGIC (PARSING, ANALYTICS, GOOGLE SHEETS & PDF GENERATION) -->
+  <!-- ====================================================================== -->
+  <script>
+    (function () {
+      'use strict';
+
+      // Target Google Sheet Configuration
+      const TARGET_SPREADSHEET_ID = '1fBVDhsmO7DAZht69Ra45zbM71Fx-Obf80WkI8CvsgIc';
+      const TARGET_SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/1fBVDhsmO7DAZht69Ra45zbM71Fx-Obf80WkI8CvsgIc/edit?gid=0#gid=0';
+
+      // Pre-configured Apps Script Web App URL (can be populated via "Save Configured edstats.html")
+      const DEFAULT_APPS_SCRIPT_URL = "";
+
+      // Complete Google Apps Script Code bound to Spreadsheet ID 1fBVDhsmO7DAZht69Ra45zbM71Fx-Obf80WkI8CvsgIc
+      const GOOGLE_APPS_SCRIPT_CODE = `const SPREADSHEET_ID = '${TARGET_SPREADSHEET_ID}';
+
+function doGet(e) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const action = (e && e.parameter && e.parameter.action) || 'list';
+
+    if (action === 'read' && e.parameter.sheet) {
+      const sheet = ss.getSheetByName(e.parameter.sheet);
+      if (!sheet) {
+        return jsonResponse({ status: 'error', message: 'Sheet not found: ' + e.parameter.sheet });
+      }
+      const values = sheet.getDataRange().getValues();
+      return jsonResponse({ status: 'ok', sheetName: sheet.getName(), values: values });
+    }
+
+    const sheets = ss.getSheets().map(function(s) {
+      return {
+        name: s.getName(),
+        rows: s.getLastRow(),
+        cols: s.getLastColumn()
+      };
+    });
+    return jsonResponse({
+      status: 'ok',
+      spreadsheetName: ss.getName(),
+      spreadsheetUrl: ss.getUrl(),
+      sheets: sheets
+    });
+  } catch (err) {
+    return jsonResponse({ status: 'error', message: err.toString() });
+  }
+}
+
+function doPost(e) {
+  try {
+    const rawBody = e.postData && e.postData.contents ? e.postData.contents : '{}';
+    const payload = JSON.parse(rawBody);
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+
+    // Create a unique sheet tab for EVERY analysis
+    const baseName = String(payload.sheetName || 'ETD_Analysis')
+      .replace(/[\\\\\\/\\?\\*\\[\\]\\:]/g, '_')
+      .slice(0, 85);
+    let finalName = baseName;
+    let counter = 2;
+    while (ss.getSheetByName(finalName)) {
+      finalName = baseName + '_' + counter;
+      counter++;
+    }
+
+    const sheet = ss.insertSheet(finalName, 0);
+    const rows = payload.rows || [];
+
+    if (rows.length > 0) {
+      const maxCols = rows.reduce(function(m, r) { return Math.max(m, r.length); }, 1);
+      const paddedRows = rows.map(function(r) {
+        const copy = r.slice();
+        while (copy.length < maxCols) copy.push('');
+        return copy;
+      });
+      sheet.getRange(1, 1, paddedRows.length, maxCols).setValues(paddedRows);
+
+      // Style title & table headers
+      sheet.getRange(1, 1, 1, maxCols).setBackground('#0f172a').setFontColor('#ffffff').setFontWeight('bold').setFontSize(12);
+      if (paddedRows.length >= 2) {
+        sheet.getRange(2, 1, 1, maxCols).setBackground('#f1f5f9').setFontColor('#334155').setFontStyle('italic');
+      }
+      if (payload.styledHeaderRows && Array.isArray(payload.styledHeaderRows)) {
+        payload.styledHeaderRows.forEach(function(rowIdx) {
+          if (rowIdx >= 1 && rowIdx <= paddedRows.length) {
+            sheet.getRange(rowIdx, 1, 1, maxCols).setBackground('#1e293b').setFontColor('#ffffff').setFontWeight('bold');
+          }
+        });
+      }
+      sheet.autoResizeColumns(1, Math.min(maxCols, 14));
+    }
+
+    return jsonResponse({
+      status: 'ok',
+      sheetName: finalName,
+      sheetId: sheet.getSheetId(),
+      spreadsheetUrl: ss.getUrl() + '#gid=' + sheet.getSheetId(),
+      rowsWritten: rows.length
+    });
+  } catch (err) {
+    return jsonResponse({ status: 'error', message: err.toString() });
+  }
+}
+
+function jsonResponse(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}`;
+
+      const ZONE_COLORS = {
+        'Green Zone (GZ)': '#10b981',
+        'Yellow Zone (YZ)': '#f59e0b',
+        'Observation Zone (OBZ)': '#3b82f6',
+        'Asthma Bay (ASB)': '#8b5cf6',
+        'Red Zone (RZ)': '#ef4444',
+        'Other': '#64748b'
+      };
+      const FALLBACK_PALETTE = ['#0ea5e9', '#14b8a6', '#f97316', '#ec4899', '#6366f1', '#84cc16'];
+      const AGE_COLORS = ['#38bdf8', '#818cf8', '#a78bfa', '#f472b6', '#fb7185', '#94a3b8'];
+      const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+      // Central In-Memory Application State
+      const state = {
+        sourceName: 'Demo_ETD_Oct2026.xlsx',
+        workbookSheets: {},
+        activeSheet: 'Sheet1',
+        rawRecords: [],
+        availableHeaders: [],
+        columnMapping: {},
+        allCleanedRecords: [],
+        filteredRecords: [],
+        stats: null,
+        filters: {
+          zone: 'ALL',
+          shift: 'ALL',
+          ageGroup: 'ALL',
+          visitType: 'ALL',
+          search: ''
+        },
+        losMetricMode: 'median', // 'median' | 'mean'
+        activeTab: 'overview',
+        tablePage: 1,
+        pageSize: 20,
+        charts: {
+          zoneVolume: null,
+          zoneLos: null,
+          hourlyCombo: null,
+          topBeds: null,
+          ageDonut: null
+        },
+        googleSheets: {
+          mode: 'apps_script', // 'apps_script' | 'oauth'
+          appsScriptUrl: DEFAULT_APPS_SCRIPT_URL,
+          oauthToken: '',
+          autoSync: true,
+          connected: Boolean(DEFAULT_APPS_SCRIPT_URL),
+          remoteSheets: []
+        },
+        lastPdfBlobUrl: null
+      };
+
+      // ======================================================================
+      // HELPER FUNCTIONS: PARSING & STATISTICAL COMPUTATION
+      // ======================================================================
+
+      function parseFlexibleDate(val) {
+        if (val === null || val === undefined || val === '') return null;
+        if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
+
+        if (typeof val === 'number' && isFinite(val) && val > 10000) {
+          const d = new Date(Math.round((val - 25569) * 86400 * 1000));
+          return isNaN(d.getTime()) ? null : d;
+        }
+
+        if (typeof val === 'string') {
+          const trimmed = val.trim();
+          if (!trimmed) return null;
+
+          if (/^\d{5}(\.\d+)?$/.test(trimmed)) {
+            const d = new Date(Math.round((parseFloat(trimmed) - 25569) * 86400 * 1000));
+            return isNaN(d.getTime()) ? null : d;
+          }
+
+          const dmyMatch = trimmed.match(
+            /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})(?:[T\s]+(\d{1,2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?\s*(AM|PM)?)?$/i
+          );
+          if (dmyMatch) {
+            let day = parseInt(dmyMatch[1], 10);
+            let month = parseInt(dmyMatch[2], 10);
+            let year = parseInt(dmyMatch[3], 10);
+            if (year < 100) year += 2000;
+
+            if (month > 12 && day <= 12) {
+              const tmp = day;
+              day = month;
+              month = tmp;
+            }
+
+            let hour = dmyMatch[4] ? parseInt(dmyMatch[4], 10) : 0;
+            const minute = dmyMatch[5] ? parseInt(dmyMatch[5], 10) : 0;
+            const second = dmyMatch[6] ? parseInt(dmyMatch[6], 10) : 0;
+            const ms = dmyMatch[7] ? parseInt(dmyMatch[7].slice(0, 3).padEnd(3, '0'), 10) : 0;
+            const ampm = dmyMatch[8] ? dmyMatch[8].toUpperCase() : null;
+
+            if (ampm === 'PM' && hour < 12) hour += 12;
+            if (ampm === 'AM' && hour === 12) hour = 0;
+
+            const constructed = new Date(year, month - 1, day, hour, minute, second, ms);
+            if (!isNaN(constructed.getTime())) return constructed;
+          }
+
+          const native = new Date(trimmed);
+          if (!isNaN(native.getTime())) return native;
+        }
+
+        return null;
+      }
+
+      function parseFlexibleAge(val) {
+        if (val === null || val === undefined || val === '') return null;
+        if (typeof val === 'number' && isFinite(val) && val >= 0 && val <= 130) return val;
+        const str = String(val).trim().toLowerCase();
+        const match = str.match(/(\d+(?:\.\d+)?)/);
+        if (!match) return null;
+        const num = parseFloat(match[1]);
+        if (str.includes('month') || str.includes('bln') || str.endsWith('m')) return Number((num / 12).toFixed(2));
+        if (str.includes('day') || str.includes('hari') || str.endsWith('d')) return Number((num / 365).toFixed(2));
+        return num >= 0 && num <= 130 ? num : null;
+      }
+
+      function categorizeClinicalZone(bedRaw) {
+        const clean = String(bedRaw || '').trim();
+        if (!clean) return 'Other';
+        const upper = clean.toUpperCase();
+
+        if (upper.startsWith('ETD-GZ') || upper.includes('GREEN') || upper.startsWith('GZ')) return 'Green Zone (GZ)';
+        if (upper.startsWith('ETD-YZ') || upper.includes('YELLOW') || upper.startsWith('YZ')) return 'Yellow Zone (YZ)';
+        if (upper.startsWith('ETD-OBZ') || upper.includes('OBS') || upper.startsWith('OBZ')) return 'Observation Zone (OBZ)';
+        if (upper.startsWith('ETD-ASB') || upper.includes('ASTHMA') || upper.startsWith('ASB')) return 'Asthma Bay (ASB)';
+        if (upper.startsWith('ETD-RZ') || upper.includes('RED') || upper.includes('RESUS') || upper.startsWith('RZ')) return 'Red Zone (RZ)';
+
+        const parts = clean.split('-');
+        if (parts.length >= 2) return parts.slice(0, -1).join('-');
+        return clean;
+      }
+
+      function calculateMedian(arr) {
+        if (!arr || arr.length === 0) return 0;
+        const sorted = [...arr].sort((a, b) => a - b);
+        const mid = Math.floor(sorted.length / 2);
+        return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+      }
+
+      function calculateQuantile(arr, q) {
+        if (!arr || arr.length === 0) return 0;
+        const sorted = [...arr].sort((a, b) => a - b);
+        const pos = (sorted.length - 1) * q;
+        const base = Math.floor(pos);
+        const rest = pos - base;
+        if (sorted[base + 1] !== undefined) {
+          return sorted[base] + rest * (sorted[base + 1] - sorted[base]);
+        }
+        return sorted[base];
+      }
+
+      function formatDateTime(d) {
+        if (!d || isNaN(d.getTime())) return 'N/A';
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      }
+
+      function escapeHtml(str) {
+        return String(str ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      function extractSheetTableAndMapping(sheet) {
+        const matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: null });
+        if (!matrix || matrix.length === 0) return { headers: [], records: [], mapping: {} };
+
+        const keywords = ['encounter', 'bed', 'patient', 'age', 'race', 'discharge', 'visit', 'date', 'time', 'zone', 'ward', 'id', 'umur', 'nama'];
+        let bestHeaderIdx = 0;
+        let bestScore = -1;
+
+        const scanLimit = Math.min(25, matrix.length);
+        for (let r = 0; r < scanLimit; r++) {
+          const row = matrix[r] || [];
+          const nonEmpty = row.filter((c) => c !== null && String(c).trim() !== '');
+          if (nonEmpty.length < 2) continue;
+
+          let hits = 0;
+          nonEmpty.forEach((cell) => {
+            const lower = String(cell).toLowerCase();
+            if (keywords.some((kw) => lower.includes(kw))) hits += 3;
+          });
+          const score = hits + nonEmpty.length * 0.5;
+          if (score > bestScore) {
+            bestScore = score;
+            bestHeaderIdx = r;
+          }
+        }
+
+        const rawHeaderRow = matrix[bestHeaderIdx] || [];
+        const seen = {};
+        const uniqueHeaders = rawHeaderRow.map((cell, idx) => {
+          const base = cell !== null && String(cell).trim() !== '' ? String(cell).trim() : `Column_${idx + 1}`;
+          if (!seen[base]) {
+            seen[base] = 1;
+            return base;
+          }
+          seen[base] += 1;
+          return `${base}_${seen[base]}`;
+        });
+
+        const records = [];
+        for (let r = bestHeaderIdx + 1; r < matrix.length; r++) {
+          const rowArr = matrix[r] || [];
+          const nonEmpty = rowArr.filter((c) => c !== null && String(c).trim() !== '');
+          if (nonEmpty.length === 0) continue;
+
+          const firstText = String(nonEmpty[0]).trim().toLowerCase();
+          if (firstText === 'total' || firstText === 'grand total' || firstText.startsWith('jumlah')) continue;
+
+          const obj = {};
+          uniqueHeaders.forEach((h, cIdx) => {
+            obj[h] = rowArr[cIdx] !== undefined ? rowArr[cIdx] : null;
+          });
+          records.push(obj);
+        }
+
+        const findCol = (patterns, excludes = []) => {
+          for (const pat of patterns) {
+            const exact = uniqueHeaders.find((h) => h.toLowerCase().trim() === pat);
+            if (exact) return exact;
+          }
+          for (const pat of patterns) {
+            const partial = uniqueHeaders.find((h) => {
+              const lower = h.toLowerCase();
+              if (excludes.some((ex) => lower.includes(ex))) return false;
+              return lower.includes(pat);
+            });
+            if (partial) return partial;
+          }
+          return '';
+        };
+
+        const mapping = {
+          encounterId: findCol(['encounter id', 'enc id', 'visit id', 'reg no', 'encounter', 'id']),
+          bedNo: findCol(['bed no.', 'bed no', 'bed number', 'bed', 'zone', 'ward', 'cubicle', 'bay']),
+          encounterDate: findCol(['encounter date', 'arrival date', 'registration date', 'reg date', 'check in', 'start date', 'visit date', 'date'], ['discharge', 'decide', 'birth', 'dob']),
+          dischargeDate: findCol(['discharge date', 'discharge', 'check out', 'depart', 'end date', 'exit']),
+          age: findCol(['age', 'umur', 'patient age']),
+          race: findCol(['race', 'ethnic', 'bangsa', 'nationality', 'citizen']),
+          visitType: findCol(['no. of visit', 'visit type', 'no of visit', 'visit', 'attendance', 'case type']),
+          patientName: findCol(['patient name', 'nama pesakit', 'name', 'nama'])
+        };
+
+        return { headers: uniqueHeaders, records, mapping };
+      }
+
+      function normalizeEtdRecords(rawRows, mapping) {
+        const records = [];
+        if (!rawRows || rawRows.length === 0) return records;
+
+        rawRows.forEach((row, idx) => {
+          const encDate = parseFlexibleDate(mapping.encounterDate ? row[mapping.encounterDate] : null);
+          const disDate = parseFlexibleDate(mapping.dischargeDate ? row[mapping.dischargeDate] : null);
+          const bedRaw = mapping.bedNo ? String(row[mapping.bedNo] || '').trim() : '';
+          const encIdRaw = mapping.encounterId ? String(row[mapping.encounterId] || '').trim() : '';
+
+          if (!encDate && !bedRaw && !encIdRaw) return;
+
+          const effectiveEncDate = encDate || disDate || new Date();
+          const effectiveDisDate = disDate || effectiveEncDate;
+
+          let losHours = (effectiveDisDate - effectiveEncDate) / (1000 * 60 * 60);
+          if (!isFinite(losHours) || losHours < 0) losHours = 0;
+          const losMinutes = losHours * 60;
+
+          const zone = categorizeClinicalZone(bedRaw);
+          const hour = effectiveEncDate.getHours();
+
+          let shift = 'Night (22:00–07:59)';
+          if (hour >= 8 && hour < 15) shift = 'Morning (08:00–14:59)';
+          else if (hour >= 15 && hour < 22) shift = 'Evening (15:00–21:59)';
+
+          const jsDay = effectiveEncDate.getDay();
+          const dayOfWeek = DAYS_OF_WEEK[jsDay === 0 ? 6 : jsDay - 1];
+          const dateOnly = `${effectiveEncDate.getFullYear()}-${String(effectiveEncDate.getMonth() + 1).padStart(2, '0')}-${String(effectiveEncDate.getDate()).padStart(2, '0')}`;
+
+          const ageVal = mapping.age ? parseFlexibleAge(row[mapping.age]) : null;
+          let ageGroup = 'Unknown';
+          if (ageVal !== null) {
+            if (ageVal < 12) ageGroup = 'Pediatric (<12)';
+            else if (ageVal <= 17) ageGroup = 'Adolescent (12–17)';
+            else if (ageVal <= 39) ageGroup = 'Young Adult (18–39)';
+            else if (ageVal <= 59) ageGroup = 'Middle-Aged (40–59)';
+            else ageGroup = 'Geriatric (60+)';
+          }
+
+          const raceRaw = mapping.race ? String(row[mapping.race] || '').trim() : '';
+          const race = raceRaw ? raceRaw.toUpperCase() : 'UNSPECIFIED';
+
+          const visitRaw = mapping.visitType ? String(row[mapping.visitType] || '').trim() : '';
+          const visitType = visitRaw ? visitRaw.toUpperCase() : '1ST TIME';
+
+          // Internal non-exported repeat-visit tracking key (PDPA-safe)
+          const patientNameRaw = mapping.patientName ? String(row[mapping.patientName] || '').trim().toUpperCase() : '';
+          const patientHashKey = patientNameRaw || encIdRaw || `ANON-${idx}`;
+
+          records.push({
+            encounterId: encIdRaw || `ENC-${String(idx + 1).padStart(5, '0')}`,
+            bedNo: bedRaw || 'N/A',
+            zone,
+            encounterDateObj: effectiveEncDate,
+            dischargeDateObj: effectiveDisDate,
+            encounterDate: formatDateTime(effectiveEncDate),
+            dischargeDate: formatDateTime(effectiveDisDate),
+            dateOnly,
+            hour,
+            dayOfWeek,
+            shift,
+            losMinutes: Number(losMinutes.toFixed(1)),
+            losHours: Number(losHours.toFixed(2)),
+            age: ageVal !== null ? Math.round(ageVal) : null,
+            ageGroup,
+            race,
+            visitType,
+            patientHashKey
+          });
+        });
+
+        return records;
+      }
+
+      function computeEtdStatistics(records, sourceName) {
+        if (!records || records.length === 0) return null;
+
+        const zoneMap = {};
+        const bedMap = {};
+        const shiftMap = {
+          'Morning (08:00–14:59)': [],
+          'Evening (15:00–21:59)': [],
+          'Night (22:00–07:59)': []
+        };
+        const dowMap = {
+          Monday: [], Tuesday: [], Wednesday: [], Thursday: [], Friday: [], Saturday: [], Sunday: []
+        };
+        const ageOrder = ['Pediatric (<12)', 'Adolescent (12–17)', 'Young Adult (18–39)', 'Middle-Aged (40–59)', 'Geriatric (60+)', 'Unknown'];
+        const ageMap = {};
+        ageOrder.forEach((g) => { ageMap[g] = []; });
+
+        const raceMap = {};
+        const visitMap = {};
+        const dailyCounts = {};
+        const patientCounts = {};
+        const heatmapMatrix = {};
+        DAYS_OF_WEEK.forEach((d) => { heatmapMatrix[d] = Array(24).fill(0); });
+
+        const hourlyArrivals = Array.from({ length: 24 }, (_, i) => ({
+          hour: i,
+          label: `${String(i).padStart(2, '0')}:00`,
+          count: 0,
+          losList: []
+        }));
+
+        let totalLosHours = 0;
+        let over4Count = 0;
+        let over6Count = 0;
+        let over12Count = 0;
+        const allLos = [];
+        const allAges = [];
+        let minDate = null;
+        let maxDate = null;
+
+        records.forEach((rec) => {
+          if (!minDate || rec.encounterDateObj < minDate) minDate = rec.encounterDateObj;
+          if (!maxDate || rec.encounterDateObj > maxDate) maxDate = rec.encounterDateObj;
+
+          dailyCounts[rec.dateOnly] = (dailyCounts[rec.dateOnly] || 0) + 1;
+          patientCounts[rec.patientHashKey] = (patientCounts[rec.patientHashKey] || 0) + 1;
+
+          if (!zoneMap[rec.zone]) zoneMap[rec.zone] = [];
+          zoneMap[rec.zone].push(rec.losHours);
+
+          if (rec.bedNo && rec.bedNo !== 'N/A') {
+            if (!bedMap[rec.bedNo]) bedMap[rec.bedNo] = { bed: rec.bedNo, zone: rec.zone, losList: [] };
+            bedMap[rec.bedNo].losList.push(rec.losHours);
+          }
+
+          if (shiftMap[rec.shift]) shiftMap[rec.shift].push(rec.losHours);
+          if (dowMap[rec.dayOfWeek]) dowMap[rec.dayOfWeek].push(rec.losHours);
+          if (heatmapMatrix[rec.dayOfWeek] && rec.hour >= 0 && rec.hour < 24) {
+            heatmapMatrix[rec.dayOfWeek][rec.hour] += 1;
+          }
+
+          if (hourlyArrivals[rec.hour]) {
+            hourlyArrivals[rec.hour].count += 1;
+            hourlyArrivals[rec.hour].losList.push(rec.losHours);
+          }
+
+          if (!ageMap[rec.ageGroup]) ageMap[rec.ageGroup] = [];
+          ageMap[rec.ageGroup].push(rec.losHours);
+          if (rec.age !== null) allAges.push(rec.age);
+
+          if (!raceMap[rec.race]) raceMap[rec.race] = [];
+          raceMap[rec.race].push(rec.losHours);
+
+          if (!visitMap[rec.visitType]) visitMap[rec.visitType] = [];
+          visitMap[rec.visitType].push(rec.losHours);
+
+          totalLosHours += rec.losHours;
+          allLos.push(rec.losHours);
+          if (rec.losHours > 4) over4Count++;
+          if (rec.losHours > 6) over6Count++;
+          if (rec.losHours > 12) over12Count++;
+        });
+
+        const totalEncounters = records.length;
+        const uniqueArr = Object.values(patientCounts);
+        const uniquePatientsCount = uniqueArr.length;
+        const singleVisitPatients = uniqueArr.filter((c) => c === 1).length;
+        const twoVisitPatients = uniqueArr.filter((c) => c === 2).length;
+        const threePlusPatients = uniqueArr.filter((c) => c >= 3).length;
+        const maxPatientVisits = uniqueArr.reduce((m, c) => Math.max(m, c), 0);
+
+        const activeDays = Object.keys(dailyCounts).length || 1;
+        const avgDailyVisits = (totalEncounters / activeDays).toFixed(1);
+
+        const avgLos = Number((totalLosHours / totalEncounters).toFixed(2));
+        const medianLos = Number(calculateMedian(allLos).toFixed(2));
+        const iqr25 = Number(calculateQuantile(allLos, 0.25).toFixed(2));
+        const iqr75 = Number(calculateQuantile(allLos, 0.75).toFixed(2));
+        const pctOver4Hours = Number(((over4Count / totalEncounters) * 100).toFixed(1));
+        const pctOver6Hours = Number(((over6Count / totalEncounters) * 100).toFixed(1));
+        const pctOver12Hours = Number(((over12Count / totalEncounters) * 100).toFixed(1));
+
+        const medianAge = allAges.length ? Math.round(calculateMedian(allAges)) : 'N/A';
+        const meanAge = allAges.length ? (allAges.reduce((a, b) => a + b, 0) / allAges.length).toFixed(1) : 'N/A';
+
+        const zoneData = Object.keys(zoneMap)
+          .map((zone, idx) => {
+            const list = zoneMap[zone];
+            const mean = list.reduce((a, b) => a + b, 0) / list.length;
+            const med = calculateMedian(list);
+            const q25 = calculateQuantile(list, 0.25);
+            const q75 = calculateQuantile(list, 0.75);
+            return {
+              zone,
+              shortZone: zone.replace(/\s*\([^)]*\)/, ''),
+              color: ZONE_COLORS[zone] || FALLBACK_PALETTE[idx % FALLBACK_PALETTE.length],
+              encounters: list.length,
+              sharePct: Number(((list.length / totalEncounters) * 100).toFixed(1)),
+              meanLos: Number(mean.toFixed(2)),
+              medianLos: Number(med.toFixed(2)),
+              medianMins: Math.round(med * 60),
+              iqrText: `${q25.toFixed(1)}–${q75.toFixed(1)}h`,
+              pctOver4: Number(((list.filter((v) => v > 4).length / list.length) * 100).toFixed(1)),
+              pctOver6: Number(((list.filter((v) => v > 6).length / list.length) * 100).toFixed(1))
+            };
+          })
+          .sort((a, b) => b.encounters - a.encounters);
+
+        const topBedsData = Object.values(bedMap)
+          .map((b) => ({
+            bed: b.bed,
+            zone: b.zone,
+            encounters: b.losList.length,
+            sharePct: Number(((b.losList.length / totalEncounters) * 100).toFixed(1)),
+            medianLos: Number(calculateMedian(b.losList).toFixed(2)),
+            occupiedHours: Number(b.losList.reduce((acc, v) => acc + v, 0).toFixed(1))
+          }))
+          .sort((a, b) => b.encounters - a.encounters);
+
+        const shiftData = Object.keys(shiftMap).map((shift) => {
+          const list = shiftMap[shift];
+          return {
+            shift,
+            shortShift: shift.split(' ')[0],
+            encounters: list.length,
+            sharePct: Number(((list.length / totalEncounters) * 100).toFixed(1)),
+            meanLos: list.length ? Number((list.reduce((a, b) => a + b, 0) / list.length).toFixed(2)) : 0,
+            medianLos: Number(calculateMedian(list).toFixed(2))
+          };
+        });
+
+        const dowData = DAYS_OF_WEEK.map((day) => {
+          const list = dowMap[day];
+          return {
+            day,
+            encounters: list.length,
+            sharePct: Number(((list.length / totalEncounters) * 100).toFixed(1)),
+            meanLos: list.length ? Number((list.reduce((a, b) => a + b, 0) / list.length).toFixed(2)) : 0,
+            medianLos: Number(calculateMedian(list).toFixed(2))
+          };
+        });
+
+        const ageData = ageOrder
+          .filter((g) => ageMap[g] && ageMap[g].length > 0)
+          .map((group, idx) => {
+            const list = ageMap[group];
+            return {
+              name: group,
+              value: list.length,
+              color: AGE_COLORS[idx % AGE_COLORS.length],
+              sharePct: Number(((list.length / totalEncounters) * 100).toFixed(1)),
+              meanLos: Number((list.reduce((a, b) => a + b, 0) / list.length).toFixed(2)),
+              medianLos: Number(calculateMedian(list).toFixed(2))
+            };
+          });
+
+        const raceData = Object.keys(raceMap)
+          .map((race) => ({
+            race,
+            encounters: raceMap[race].length,
+            sharePct: Number(((raceMap[race].length / totalEncounters) * 100).toFixed(1)),
+            medianLos: Number(calculateMedian(raceMap[race]).toFixed(2))
+          }))
+          .sort((a, b) => b.encounters - a.encounters);
+
+        const visitTypeData = Object.keys(visitMap)
+          .map((type) => ({
+            type,
+            encounters: visitMap[type].length,
+            sharePct: Number(((visitMap[type].length / totalEncounters) * 100).toFixed(1)),
+            medianLos: Number(calculateMedian(visitMap[type]).toFixed(2))
+          }))
+          .sort((a, b) => b.encounters - a.encounters);
+
+        const hourlySeries = hourlyArrivals.map((h) => ({
+          hour: h.hour,
+          label: h.label,
+          count: h.count,
+          medianLos: Number(calculateMedian(h.losList).toFixed(2)),
+          meanLos: h.losList.length ? Number((h.losList.reduce((a, b) => a + b, 0) / h.losList.length).toFixed(2)) : 0
+        }));
+
+        const peakHourObj = hourlySeries.reduce((best, cur) => (cur.count > best.count ? cur : best), hourlySeries[0]);
+        const busiestDayObj = dowData.reduce((best, cur) => (cur.encounters > best.encounters ? cur : best), dowData[0]);
+
+        let maxHeatmapCell = 1;
+        DAYS_OF_WEEK.forEach((d) => {
+          heatmapMatrix[d].forEach((val) => {
+            if (val > maxHeatmapCell) maxHeatmapCell = val;
+          });
+        });
+
+        return {
+          sourceName,
+          metrics: {
+            totalEncounters,
+            uniquePatientsCount,
+            uniqueBedsCount: Object.keys(bedMap).length,
+            activeDays,
+            avgDailyVisits,
+            avgLos,
+            medianLos,
+            iqr25,
+            iqr75,
+            over4Count,
+            over6Count,
+            over12Count,
+            pctOver4Hours,
+            pctOver6Hours,
+            pctOver12Hours,
+            medianAge,
+            meanAge,
+            peakHourLabel: peakHourObj ? peakHourObj.label : 'N/A',
+            peakHourCount: peakHourObj ? peakHourObj.count : 0,
+            busiestDayLabel: busiestDayObj ? busiestDayObj.day : 'N/A',
+            busiestDayCount: busiestDayObj ? busiestDayObj.encounters : 0,
+            dateRangeText: `${formatDateTime(minDate).slice(0, 10)} to ${formatDateTime(maxDate).slice(0, 10)}`,
+            repeatStats: {
+              singleVisitPatients,
+              twoVisitPatients,
+              threePlusPatients,
+              maxPatientVisits
+            }
+          },
+          charts: {
+            zoneData,
+            hourlySeries,
+            ageData,
+            dowData,
+            topBedsData: topBedsData.slice(0, 15),
+            heatmapMatrix,
+            maxHeatmapCell
+          },
+          tables: {
+            zoneData,
+            topBedsData,
+            shiftData,
+            dowData,
+            ageData,
+            raceData,
+            visitTypeData
+          }
+        };
+      }
+
+      // ======================================================================
+      // GOOGLE SHEETS PAYLOAD BUILDER & TWO-WAY CONNECTOR
+      // ======================================================================
+
+      function buildGoogleSheetPayload(stats, records) {
+        const { metrics, tables, charts, sourceName } = stats;
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
+        const cleanSource = sourceName.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 35);
+        const sheetName = `ETD_${stamp}_${cleanSource}`;
+
+        const rows = [];
+        const styledHeaderRows = [];
+
+        const pushRow = (arr, isHeader = false) => {
+          rows.push(arr);
+          if (isHeader) styledHeaderRows.push(rows.length);
+        };
+
+        // Title & Metadata
+        pushRow([`ETD STATISTICAL ANALYSIS REPORT — ${sourceName}`]);
+        pushRow([`Generated: ${formatDateTime(now)} | Period: ${metrics.dateRangeText} | PDPA-Anonymized (Names Removed)`]);
+        pushRow([]);
+
+        // Section 1: Executive KPIs
+        pushRow(['EXECUTIVE KPI SUMMARY'], true);
+        pushRow(['Metric', 'Value', 'Benchmark / Notes'], true);
+        pushRow(['Total Encounters', metrics.totalEncounters, `${metrics.avgDailyVisits} avg visits/day across ${metrics.activeDays} active days`]);
+        pushRow(['Unique Patients', metrics.uniquePatientsCount, `${metrics.repeatStats.twoVisitPatients + metrics.repeatStats.threePlusPatients} repeat visitors`]);
+        pushRow(['Median Length of Stay (LOS)', `${metrics.medianLos} hrs`, `IQR: ${metrics.iqr25}–${metrics.iqr75} hrs`]);
+        pushRow(['Mean Length of Stay (LOS)', `${metrics.avgLos} hrs`, `Across ${metrics.uniqueBedsCount} active beds`]);
+        pushRow(['Encounters > 4 Hours', `${metrics.over4Count} (${metrics.pctOver4Hours}%)`, `>6 hrs: ${metrics.pctOver6Hours}% | >12 hrs: ${metrics.pctOver12Hours}%`]);
+        pushRow(['Peak Arrival Hour', `${metrics.peakHourLabel} (${metrics.peakHourCount} visits)`, `Busiest Day: ${metrics.busiestDayLabel} (${metrics.busiestDayCount} visits)`]);
+        pushRow(['Patient Age Summary', `Median: ${metrics.medianAge} yrs`, `Mean: ${metrics.meanAge} yrs`]);
+        pushRow([]);
+
+        // Section 2: Clinical Zone Performance
+        pushRow(['CLINICAL ZONE PERFORMANCE'], true);
+        pushRow(['Clinical Zone', 'Encounters', 'Share %', 'Mean LOS (hrs)', 'Median LOS (hrs)', 'Median (mins)', 'IQR', '> 4 Hrs %', '> 6 Hrs %'], true);
+        tables.zoneData.forEach((z) => {
+          pushRow([z.zone, z.encounters, z.sharePct, z.meanLos, z.medianLos, z.medianMins, z.iqrText, z.pctOver4, z.pctOver6]);
+        });
+        pushRow([]);
+
+        // Section 3: Shift & Day of Week
+        pushRow(['OPERATIONAL SHIFT PERFORMANCE'], true);
+        pushRow(['Shift Window', 'Encounters', 'Share %', 'Mean LOS (hrs)', 'Median LOS (hrs)'], true);
+        tables.shiftData.forEach((s) => {
+          pushRow([s.shift, s.encounters, s.sharePct, s.meanLos, s.medianLos]);
+        });
+        pushRow([]);
+
+        pushRow(['DAY-OF-WEEK SURGE BREAKDOWN'], true);
+        pushRow(['Day of Week', 'Encounters', 'Share %', 'Mean LOS (hrs)', 'Median LOS (hrs)'], true);
+        tables.dowData.forEach((d) => {
+          pushRow([d.day, d.encounters, d.sharePct, d.meanLos, d.medianLos]);
+        });
+        pushRow([]);
+
+        // Section 4: 24-Hour Arrivals
+        pushRow(['24-HOUR ARRIVAL PROFILE'], true);
+        pushRow(['Hour', 'Arrivals', 'Median LOS (hrs)', 'Mean LOS (hrs)'], true);
+        charts.hourlySeries.forEach((h) => {
+          pushRow([h.label, h.count, h.medianLos, h.meanLos]);
+        });
+        pushRow([]);
+
+        // Section 5: Demographics & Repeat Audit
+        pushRow(['AGE BRACKET DEMOGRAPHICS'], true);
+        pushRow(['Age Group', 'Encounters', 'Share %', 'Mean LOS (hrs)', 'Median LOS (hrs)'], true);
+        tables.ageData.forEach((a) => {
+          pushRow([a.name, a.value, a.sharePct, a.meanLos, a.medianLos]);
+        });
+        pushRow([]);
+
+        pushRow(['RACE / CITIZENSHIP BREAKDOWN'], true);
+        pushRow(['Race / Status', 'Encounters', 'Share %', 'Median LOS (hrs)'], true);
+        tables.raceData.forEach((r) => {
+          pushRow([r.race, r.encounters, r.sharePct, r.medianLos]);
+        });
+        pushRow([]);
+
+        pushRow(['VISIT CLASSIFICATION & REPEAT-VISITOR SUMMARY'], true);
+        pushRow(['Classification', 'Encounters', 'Share %', 'Median LOS (hrs)'], true);
+        tables.visitTypeData.forEach((v) => {
+          pushRow([v.type, v.encounters, v.sharePct, v.medianLos]);
+        });
+        pushRow(['Unique Patient Frequency', `1 Visit: ${metrics.repeatStats.singleVisitPatients}`, `2 Visits: ${metrics.repeatStats.twoVisitPatients}`, `3+ Visits: ${metrics.repeatStats.threePlusPatients} (Max: ${metrics.repeatStats.maxPatientVisits})`]);
+        pushRow([]);
+
+        // Section 6: PDPA-Anonymized Encounter Records
+        pushRow(['CLEANED PDPA-ANONYMIZED ENCOUNTER RECORDS (PATIENT NAMES STRIPPED)'], true);
+        pushRow(['Encounter Id', 'Bed No.', 'Zone', 'Encounter Date', 'Discharge Date', 'LOS_minutes', 'LOS_hours', 'Shift', 'Day_of_Week', 'Age', 'Age_Group', 'Race', 'No_of_Visit'], true);
+        records.forEach((r) => {
+          pushRow([
+            r.encounterId,
+            r.bedNo,
+            r.zone,
+            r.encounterDate,
+            r.dischargeDate,
+            r.losMinutes,
+            r.losHours,
+            r.shift,
+            r.dayOfWeek,
+            r.age !== null ? r.age : '',
+            r.ageGroup,
+            r.race,
+            r.visitType
+          ]);
+        });
+
+        return { sheetName, rows, styledHeaderRows };
+      }
+
+      async function pushAnalysisToGoogleSheet(stats, records) {
+        if (!stats || !stats.metrics) return;
+        const { mode, appsScriptUrl, oauthToken } = state.googleSheets;
+
+        if (mode === 'apps_script' && !appsScriptUrl.trim()) {
+          showStatusBanner('warning', 'Google Sheet Backend Not Connected Yet', 'Paste your Apps Script Web App URL in the Google Sheet Backend panel above to automatically create a new tab on every upload.');
+          return;
+        }
+        if (mode === 'oauth' && !oauthToken.trim()) {
+          showStatusBanner('warning', 'Google OAuth Token Missing', 'Paste a valid Google Sheets API v4 OAuth Bearer token in the Google Sheet Backend panel above.');
+          return;
+        }
+
+        const payload = buildGoogleSheetPayload(stats, records);
+        showStatusBanner('info', 'Syncing Analysis to Google Sheets...', `Creating new sheet tab "${payload.sheetName}" inside spreadsheet ${TARGET_SPREADSHEET_ID}...`);
+
+        try {
+          if (mode === 'apps_script') {
+            const response = await fetch(appsScriptUrl.trim(), {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+              body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            if (data.status !== 'ok') {
+              throw new Error(data.message || 'Apps Script returned an error.');
+            }
+            updateGsConnectionUi(true);
+            showStatusBanner(
+              'success',
+              `New Google Sheet Tab Created: "${data.sheetName}"`,
+              `Wrote ${data.rowsWritten.toLocaleString()} rows (KPI summaries + PDPA-cleaned encounters) into your Google Sheet.`,
+              data.spreadsheetUrl || TARGET_SPREADSHEET_URL,
+              'Open New Sheet Tab ↗'
+            );
+            refreshRemoteSheetList();
+          } else {
+            // Direct Google Sheets API v4 (batchUpdate addSheet -> values.update)
+            const addRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${TARGET_SPREADSHEET_ID}:batchUpdate`, {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${oauthToken.trim()}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                requests: [{ addSheet: { properties: { title: payload.sheetName, index: 0 } } }]
+              })
+            });
+            const addJson = await addRes.json();
+            if (!addRes.ok) {
+              throw new Error(addJson.error?.message || 'Failed to create new sheet tab via Google Sheets API.');
+            }
+            const createdProps = addJson.replies[0].addSheet.properties;
+            const actualTitle = createdProps.title;
+            const newGid = createdProps.sheetId;
+
+            const putRes = await fetch(
+              `https://sheets.googleapis.com/v4/spreadsheets/${TARGET_SPREADSHEET_ID}/values/${encodeURIComponent(actualTitle)}!A1?valueInputOption=USER_ENTERED`,
+              {
+                method: 'PUT',
+                headers: {
+                  Authorization: `Bearer ${oauthToken.trim()}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ values: payload.rows })
+              }
+            );
+            const putJson = await putRes.json();
+            if (!putRes.ok) {
+              throw new Error(putJson.error?.message || 'Sheet tab created, but writing rows failed.');
+            }
+
+            updateGsConnectionUi(true);
+            showStatusBanner(
+              'success',
+              `New Google Sheet Tab Created: "${actualTitle}"`,
+              `Updated ${putJson.updatedRows || payload.rows.length} rows directly via Google Sheets API v4.`,
+              `https://docs.google.com/spreadsheets/d/${TARGET_SPREADSHEET_ID}/edit#gid=${newGid}`,
+              'Open New Sheet Tab ↗'
+            );
+            refreshRemoteSheetList();
+          }
+        } catch (err) {
+          console.error(err);
+          showStatusBanner('error', 'Google Sheets Sync Failed', err.message);
+        }
+      }
+
+      async function refreshRemoteSheetList() {
+        const { mode, appsScriptUrl, oauthToken } = state.googleSheets;
+        const selectEl = document.getElementById('remoteSheetSelect');
+        const hintEl = document.getElementById('remoteSheetsHint');
+
+        try {
+          let sheetNames = [];
+          if (mode === 'apps_script' && appsScriptUrl.trim()) {
+            const url = `${appsScriptUrl.trim()}${appsScriptUrl.includes('?') ? '&' : '?'}action=list`;
+            const res = await fetch(url);
+            const json = await res.json();
+            if (json.status !== 'ok') throw new Error(json.message || 'Unable to list sheets.');
+            sheetNames = (json.sheets || []).map((s) => s.name);
+          } else if (mode === 'oauth' && oauthToken.trim()) {
+            const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${TARGET_SPREADSHEET_ID}?fields=sheets.properties`, {
+              headers: { Authorization: `Bearer ${oauthToken.trim()}` }
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error?.message || 'Unable to fetch spreadsheet metadata.');
+            sheetNames = (json.sheets || []).map((s) => s.properties.title);
+          } else {
+            return;
+          }
+
+          state.googleSheets.remoteSheets = sheetNames;
+          updateGsConnectionUi(true);
+          selectEl.innerHTML = sheetNames.length
+            ? sheetNames.map((n) => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('')
+            : '<option value="">-- No tabs found --</option>';
+          hintEl.textContent = `Connected! Found ${sheetNames.length} sheet tab(s) in spreadsheet ${TARGET_SPREADSHEET_ID}.`;
+        } catch (err) {
+          updateGsConnectionUi(false);
+          hintEl.textContent = `Connection check failed: ${err.message}`;
+        }
+      }
+
+      async function loadRemoteSheetIntoDashboard(sheetName) {
+        if (!sheetName) return;
+        const { mode, appsScriptUrl, oauthToken } = state.googleSheets;
+        showStatusBanner('info', `Loading Sheet "${sheetName}" from Google Sheets...`, 'Fetching stored rows and reconstructing analytics...');
+
+        try {
+          let values = [];
+          if (mode === 'apps_script' && appsScriptUrl.trim()) {
+            const url = `${appsScriptUrl.trim()}${appsScriptUrl.includes('?') ? '&' : '?'}action=read&sheet=${encodeURIComponent(sheetName)}`;
+            const res = await fetch(url);
+            const json = await res.json();
+            if (json.status !== 'ok') throw new Error(json.message || 'Failed to read remote sheet.');
+            values = json.values || [];
+          } else if (mode === 'oauth' && oauthToken.trim()) {
+            const res = await fetch(
+              `https://sheets.googleapis.com/v4/spreadsheets/${TARGET_SPREADSHEET_ID}/values/${encodeURIComponent(sheetName)}!A1:Z50000`,
+              { headers: { Authorization: `Bearer ${oauthToken.trim()}` } }
+            );
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error?.message || 'Failed to read remote sheet values.');
+            values = json.values || [];
+          } else {
+            throw new Error('Connect Google Sheets first.');
+          }
+
+          // Convert 2D matrix into a temporary SheetJS worksheet so our smart header scanner extracts the encounter table automatically
+          const ws = XLSX.utils.aoa_to_sheet(values);
+          const extracted = extractSheetTableAndMapping(ws);
+          if (!extracted.records.length) {
+            throw new Error(`No encounter records found inside sheet tab "${sheetName}".`);
+          }
+
+          state.workbookSheets = { [sheetName]: extracted };
+          state.activeSheet = sheetName;
+          state.sourceName = `GoogleSheet_${sheetName}`;
+          state.rawRecords = extracted.records;
+          state.availableHeaders = extracted.headers;
+          state.columnMapping = extracted.mapping;
+          resetAllFilters();
+          runFullAnalysisPipeline(false, false);
+          showStatusBanner('success', `Loaded "${sheetName}" from Google Sheets`, `Successfully analyzed ${state.allCleanedRecords.length.toLocaleString()} records from your Google Sheet.`);
+        } catch (err) {
+          showStatusBanner('error', 'Failed to Load Remote Sheet', err.message);
+        }
+      }
+
+      // ======================================================================
+      // AUTOMATIC MULTI-PAGE PDF STATISTICAL REPORT GENERATOR
+      // ======================================================================
+
+      function generateAndDownloadPdf(stats, records) {
+        if (!stats || !stats.metrics || !window.jspdf || !window.jspdf.jsPDF) return null;
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 14;
+        const contentWidth = pageWidth - margin * 2;
+        const { metrics, tables, charts, sourceName } = stats;
+
+        const renderTable = (startY, head, body, columnStyles = {}) => {
+          if (typeof doc.autoTable === 'function') {
+            doc.autoTable({
+              startY,
+              head: [head],
+              body,
+              margin: { left: margin, right: margin },
+              theme: 'grid',
+              styles: { fontSize: 8.2, cellPadding: 2.3, textColor: [30, 41, 59], lineColor: [203, 213, 225], lineWidth: 0.2 },
+              headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold' },
+              alternateRowStyles: { fillColor: [248, 250, 252] },
+              columnStyles
+            });
+            return doc.lastAutoTable.finalY;
+          }
+          return startY + 10;
+        };
+
+        // Page 1 Header
+        doc.setFillColor(15, 23, 42);
+        doc.rect(0, 0, pageWidth, 28, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.text('Emergency & Trauma Department (ETD) Statistical Report', margin, 11.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8.5);
+        doc.setTextColor(203, 213, 225);
+        doc.text(`Source: ${sourceName}   |   Period: ${metrics.dateRangeText}   |   Generated: ${formatDateTime(new Date())}`, margin, 19);
+        doc.text(`Google Sheet Backend ID: ${TARGET_SPREADSHEET_ID}   |   PDPA-Anonymized Output`, margin, 24.5);
+
+        // KPI Cards
+        let y = 34;
+        const kpis = [
+          { label: 'TOTAL ENCOUNTERS', val: metrics.totalEncounters.toLocaleString(), sub: `${metrics.uniquePatientsCount.toLocaleString()} unique patients` },
+          { label: 'MEDIAN LOS (IQR)', val: `${metrics.medianLos.toFixed(2)} hrs`, sub: `IQR: ${metrics.iqr25}–${metrics.iqr75} hrs` },
+          { label: 'MEAN LOS & VOLUME', val: `${metrics.avgLos.toFixed(2)} hrs`, sub: `${metrics.avgDailyVisits} visits/day (${metrics.uniqueBedsCount} beds)` },
+          { label: 'EXCEEDING 4 HOURS', val: `${metrics.pctOver4Hours}%`, sub: `>6h: ${metrics.pctOver6Hours}% | >12h: ${metrics.pctOver12Hours}%` }
+        ];
+        const gap = 3;
+        const cardW = (contentWidth - gap * 3) / 4;
+        kpis.forEach((k, i) => {
+          const x = margin + i * (cardW + gap);
+          doc.setFillColor(248, 250, 252);
+          doc.setDrawColor(203, 213, 225);
+          doc.roundedRect(x, y, cardW, 19, 2, 2, 'FD');
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(6.8);
+          doc.setTextColor(100, 116, 139);
+          doc.text(k.label, x + 2.8, y + 5.2);
+          doc.setFontSize(11.5);
+          doc.setTextColor(15, 23, 42);
+          doc.text(k.val, x + 2.8, y + 12);
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(6.8);
+          doc.setTextColor(71, 85, 105);
+          doc.text(k.sub, x + 2.8, y + 16.8);
+        });
+
+        // Zone Table
+        y += 25;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10.5);
+        doc.setTextColor(15, 23, 42);
+        doc.text('1. Turnaround Time (LOS) & Volume by Clinical Zone', margin, y);
+
+        y = renderTable(
+          y + 3,
+          ['Clinical Zone', 'Encounters', 'Share %', 'Mean LOS', 'Median LOS', 'IQR', '% > 4 Hrs'],
+          tables.zoneData.map((z) => [z.zone, z.encounters.toLocaleString(), `${z.sharePct}%`, `${z.meanLos.toFixed(2)}h`, `${z.medianLos.toFixed(2)}h (${z.medianMins}m)`, z.iqrText, `${z.pctOver4}%`]),
+          { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' } }
+        );
+
+        // Shift Table
+        y += 8;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10.5);
+        doc.text('2. Operational Shift Performance', margin, y);
+        renderTable(
+          y + 3,
+          ['Shift Window', 'Encounters', 'Share %', 'Mean LOS (hrs)', 'Median LOS (hrs)'],
+          tables.shiftData.map((s) => [s.shift, s.encounters.toLocaleString(), `${s.sharePct}%`, s.meanLos.toFixed(2), s.medianLos.toFixed(2)]),
+          { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' } }
+        );
+
+        // Page 2: Arrival Surges & Demographics
+        doc.addPage();
+        let y2 = 16;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10.5);
+        doc.text(`3. Day-of-Week Surge Breakdown (Busiest: ${metrics.busiestDayLabel} | Peak Hour: ${metrics.peakHourLabel})`, margin, y2);
+        y2 = renderTable(
+          y2 + 3,
+          ['Day of Week', 'Encounters', 'Share %', 'Mean LOS (hrs)', 'Median LOS (hrs)'],
+          tables.dowData.map((d) => [d.day, d.encounters.toLocaleString(), `${d.sharePct}%`, d.meanLos.toFixed(2), d.medianLos.toFixed(2)]),
+          { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' } }
+        );
+
+        y2 += 8;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10.5);
+        doc.text(`4. Age Bracket Demographics (Median Age: ${metrics.medianAge} yrs | Mean Age: ${metrics.meanAge} yrs)`, margin, y2);
+        y2 = renderTable(
+          y2 + 3,
+          ['Age Bracket', 'Encounters', 'Share %', 'Mean LOS (hrs)', 'Median LOS (hrs)'],
+          tables.ageData.map((a) => [a.name, a.value.toLocaleString(), `${a.sharePct}%`, a.meanLos.toFixed(2), a.medianLos.toFixed(2)]),
+          { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' } }
+        );
+
+        y2 += 8;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10.5);
+        doc.text('5. Race / Citizenship Breakdown & Repeat-Visitor Summary', margin, y2);
+        y2 = renderTable(
+          y2 + 3,
+          ['Race / Status', 'Encounters', 'Share %', 'Median LOS (hrs)'],
+          tables.raceData.map((r) => [r.race, r.encounters.toLocaleString(), `${r.sharePct}%`, r.medianLos.toFixed(2)]),
+          { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' } }
+        );
+
+        // Page 3: Cleaned PDPA Sample
+        doc.addPage();
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10.5);
+        doc.text('6. Cleaned & PDPA-Anonymized Dataset Excerpt (First 35 Records)', margin, 16);
+        renderTable(
+          21,
+          ['Encounter Id', 'Encounter Date', 'Zone', 'LOS_mins', 'LOS_hrs', 'Shift', 'Age_Group', 'Visit'],
+          records.slice(0, 35).map((r) => [
+            String(r.encounterId),
+            r.encounterDate,
+            r.zone.replace(/\s*\([^)]*\)/, ''),
+            r.losMinutes.toFixed(1),
+            r.losHours.toFixed(2),
+            r.shift.split(' ')[0],
+            r.ageGroup.split(' ')[0],
+            r.visitType
+          ]),
+          { 3: { halign: 'right' }, 4: { halign: 'right' } }
+        );
+
+        const totalPages = doc.internal.getNumberOfPages();
+        for (let p = 1; p <= totalPages; p++) {
+          doc.setPage(p);
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8);
+          doc.setTextColor(100, 116, 139);
+          doc.text('ETD Auto-Analysis Engine — PDPA-Compliant Statistical Report', margin, pageHeight - 8);
+          doc.text(`Page ${p} of ${totalPages}`, pageWidth - margin, pageHeight - 8, { align: 'right' });
+        }
+
+        const cleanBase = sourceName.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const filename = `ETD_Statistical_Report_${cleanBase}.pdf`;
+        const blob = doc.output('blob');
+        if (state.lastPdfBlobUrl) URL.revokeObjectURL(state.lastPdfBlobUrl);
+        state.lastPdfBlobUrl = URL.createObjectURL(blob);
+
+        try {
+          doc.save(filename);
+        } catch {
+          const link = document.createElement('a');
+          link.href = state.lastPdfBlobUrl;
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+
+        return { filename, blobUrl: state.lastPdfBlobUrl };
+      }
+
+      // ======================================================================
+      // UI RENDERING ENGINE
+      // ======================================================================
+
+      function showStatusBanner(type, title, message, actionHref = null, actionLabel = '') {
+        const container = document.getElementById('statusBannerContainer');
+        const styles = {
+          success: 'bg-emerald-50 border-emerald-300 text-emerald-950',
+          info: 'bg-blue-50 border-blue-300 text-blue-950',
+          warning: 'bg-amber-50 border-amber-300 text-amber-950',
+          error: 'bg-red-50 border-red-300 text-red-950'
+        };
+        const actionHtml = actionHref
+          ? `<a href="${escapeHtml(actionHref)}" target="_blank" rel="noopener noreferrer" class="shrink-0 inline-flex items-center gap-1 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white px-3.5 py-2 rounded-xl transition-colors">${escapeHtml(actionLabel)}</a>`
+          : '';
+
+        container.innerHTML = `
+          <div class="border p-4 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm ${styles[type] || styles.info}">
+            <div>
+              <h4 class="font-bold text-sm">${escapeHtml(title)}</h4>
+              <p class="text-xs mt-0.5 opacity-90">${escapeHtml(message)}</p>
+            </div>
+            ${actionHtml}
+          </div>
+        `;
+      }
+
+      function updateGsConnectionUi(isConnected) {
+        state.googleSheets.connected = isConnected;
+        const dot = document.getElementById('gsStatusDot');
+        const badge = document.getElementById('gsBadge');
+        if (isConnected) {
+          dot.className = 'w-2 h-2 rounded-full bg-emerald-500';
+          badge.className = 'text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800';
+          badge.textContent = 'Connected (Auto-Creating New Tabs)';
+        } else {
+          dot.className = 'w-2 h-2 rounded-full bg-amber-500';
+          badge.className = 'text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800';
+          badge.textContent = 'Setup Required';
+        }
+      }
+
+      function renderColumnMapper() {
+        const grid = document.getElementById('mappingSelectGrid');
+        const fields = [
+          { key: 'encounterId', label: 'Encounter ID' },
+          { key: 'bedNo', label: 'Bed No. / Clinical Zone' },
+          { key: 'encounterDate', label: 'Encounter / Arrival Date' },
+          { key: 'dischargeDate', label: 'Discharge Date' },
+          { key: 'age', label: 'Patient Age' },
+          { key: 'race', label: 'Race / Nationality' },
+          { key: 'visitType', label: 'Visit Type (1st / Follow Up)' },
+          { key: 'patientName', label: 'Patient Name (Repeat Audit Only)' }
+        ];
+
+        grid.innerHTML = fields
+          .map((f) => {
+            const options = ['<option value="">-- Not Mapped --</option>']
+              .concat(
+                state.availableHeaders.map(
+                  (h) => `<option value="${escapeHtml(h)}" ${state.columnMapping[f.key] === h ? 'selected' : ''}>${escapeHtml(h)}</option>`
+                )
+              )
+              .join('');
+            return `
+              <div>
+                <label class="block text-xs font-bold text-slate-600 mb-1">${escapeHtml(f.label)}</label>
+                <select data-map-key="${f.key}" class="map-select w-full text-xs border border-slate-300 rounded-xl px-2.5 py-2 bg-slate-50 focus:bg-white outline-none">
+                  ${options}
+                </select>
+              </div>
+            `;
+          })
+          .join('');
+      }
+
+      function populateFilterDropdowns() {
+        const zones = Array.from(new Set(state.allCleanedRecords.map((r) => r.zone))).sort();
+        const ages = Array.from(new Set(state.allCleanedRecords.map((r) => r.ageGroup)));
+        const visits = Array.from(new Set(state.allCleanedRecords.map((r) => r.visitType))).sort();
+
+        const zoneSel = document.getElementById('filterZone');
+        zoneSel.innerHTML = '<option value="ALL">All Clinical Zones</option>' + zones.map((z) => `<option value="${escapeHtml(z)}">${escapeHtml(z)}</option>`).join('');
+        zoneSel.value = state.filters.zone;
+
+        const ageSel = document.getElementById('filterAge');
+        ageSel.innerHTML = '<option value="ALL">All Age Groups</option>' + ages.map((a) => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
+        ageSel.value = state.filters.ageGroup;
+
+        const visitSel = document.getElementById('filterVisit');
+        visitSel.innerHTML = '<option value="ALL">All Visit Types</option>' + visits.map((v) => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+        visitSel.value = state.filters.visitType;
+      }
+
+      function resetAllFilters() {
+        state.filters = { zone: 'ALL', shift: 'ALL', ageGroup: 'ALL', visitType: 'ALL', search: '' };
+        state.tablePage = 1;
+        document.getElementById('filterShift').value = 'ALL';
+        document.getElementById('filterSearch').value = '';
+      }
+
+      function applyFiltersAndRender() {
+        const { zone, shift, ageGroup, visitType, search } = state.filters;
+        const q = search.trim().toLowerCase();
+
+        state.filteredRecords = state.allCleanedRecords.filter((rec) => {
+          if (zone !== 'ALL' && rec.zone !== zone) return false;
+          if (shift !== 'ALL' && rec.shift !== shift) return false;
+          if (ageGroup !== 'ALL' && rec.ageGroup !== ageGroup) return false;
+          if (visitType !== 'ALL' && rec.visitType !== visitType) return false;
+          if (q) {
+            const hay = `${rec.encounterId} ${rec.bedNo} ${rec.zone} ${rec.race}`.toLowerCase();
+            if (!hay.includes(q)) return false;
+          }
+          return true;
+        });
+
+        const activeCount = [zone !== 'ALL', shift !== 'ALL', ageGroup !== 'ALL', visitType !== 'ALL', q !== ''].filter(Boolean).length;
+        const badge = document.getElementById('activeFilterBadge');
+        const resetBtn = document.getElementById('btnResetFilters');
+        if (activeCount > 0) {
+          badge.classList.remove('hidden');
+          badge.textContent = `${activeCount} Active (${state.filteredRecords.length.toLocaleString()} of ${state.allCleanedRecords.length.toLocaleString()} rows)`;
+          resetBtn.classList.remove('hidden');
+        } else {
+          badge.classList.add('hidden');
+          resetBtn.classList.add('hidden');
+        }
+
+        state.stats = computeEtdStatistics(state.filteredRecords, state.sourceName);
+        renderDashboardVisuals();
+      }
+
+      function renderDashboardVisuals() {
+        const stats = state.stats;
+        document.getElementById('tabBtnData').textContent = `PDPA-Cleaned Data (${state.filteredRecords.length.toLocaleString()})`;
+
+        if (!stats || !stats.metrics) {
+          document.getElementById('kpiGrid').innerHTML = '<div class="col-span-full bg-white p-8 rounded-2xl border border-slate-200 text-center text-sm font-semibold text-slate-500">No encounters match the current filter selection.</div>';
+          return;
+        }
+
+        const { metrics, charts, tables } = stats;
+        document.getElementById('headerPeriod').innerHTML = `Period: <strong class="text-slate-700">${escapeHtml(metrics.dateRangeText)}</strong>`;
+
+        // 1. Render 6 KPI Cards
+        const kpiCards = [
+          { title: 'Encounters', value: metrics.totalEncounters.toLocaleString(), sub: `Avg <strong>${metrics.avgDailyVisits}</strong> / day (${metrics.activeDays}d)`, color: 'text-slate-900' },
+          { title: 'Unique Patients', value: metrics.uniquePatientsCount.toLocaleString(), sub: `<strong>${(metrics.repeatStats.twoVisitPatients + metrics.repeatStats.threePlusPatients).toLocaleString()}</strong> repeat visitors`, color: 'text-slate-900' },
+          { title: 'Median LOS', value: `${metrics.medianLos.toFixed(2)} hrs`, sub: `IQR: ${metrics.iqr25}–${metrics.iqr75} hrs`, color: 'text-emerald-700' },
+          { title: 'Mean LOS', value: `${metrics.avgLos.toFixed(2)} hrs`, sub: `Across ${metrics.uniqueBedsCount} active beds`, color: 'text-slate-900' },
+          { title: 'LOS > 4 Hours', value: `${metrics.pctOver4Hours}%`, sub: `${metrics.over4Count.toLocaleString()} cases (>6h: ${metrics.pctOver6Hours}%)`, color: 'text-red-600' },
+          { title: 'Peak Surge', value: metrics.peakHourLabel, sub: `${metrics.peakHourCount} arrivals | Top: ${metrics.busiestDayLabel.slice(0, 3)}`, color: 'text-blue-700' }
+        ];
+
+        document.getElementById('kpiGrid').innerHTML = kpiCards
+          .map(
+            (c) => `
+            <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+              <div class="text-xs font-bold text-slate-500 uppercase tracking-wider">${escapeHtml(c.title)}</div>
+              <div class="text-2xl font-extrabold ${c.color} mt-1.5">${escapeHtml(c.value)}</div>
+              <div class="text-[11px] text-slate-500 mt-1">${c.sub}</div>
+            </div>
+          `
+          )
+          .join('');
+
+        // 2. Render Charts (Chart.js)
+        renderCharts(charts);
+
+        // 3. Render 7x24 Arrival Heatmap
+        renderHeatmap(charts.heatmapMatrix, charts.maxHeatmapCell);
+
+        // 4. Render Tables
+        document.getElementById('tableZoneBody').innerHTML = tables.zoneData
+          .map(
+            (z) => `
+            <tr class="hover:bg-slate-50">
+              <td class="py-3 px-4 font-semibold text-slate-900 flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full shrink-0" style="background:${z.color}"></span>
+                ${escapeHtml(z.zone)}
+              </td>
+              <td class="py-3 px-4 text-right font-semibold">${z.encounters.toLocaleString()}</td>
+              <td class="py-3 px-4 text-right text-slate-500">${z.sharePct}%</td>
+              <td class="py-3 px-4 text-right">${z.meanLos.toFixed(2)} hrs</td>
+              <td class="py-3 px-4 text-right font-bold text-slate-900">${z.medianLos.toFixed(2)} hrs <span class="text-xs font-normal text-slate-400">(${z.medianMins}m)</span></td>
+              <td class="py-3 px-4 text-right text-slate-500">${escapeHtml(z.iqrText)}</td>
+              <td class="py-3 px-4 text-right"><span class="px-2 py-0.5 rounded-full text-xs font-bold ${z.pctOver4 > 50 ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}">${z.pctOver4}%</span></td>
+              <td class="py-3 px-4 text-right text-slate-500">${z.pctOver6}%</td>
+            </tr>
+          `
+          )
+          .join('');
+
+        document.getElementById('tableShiftBody').innerHTML = tables.shiftData
+          .map(
+            (s) => `
+            <tr class="hover:bg-slate-50">
+              <td class="py-3 px-4 font-semibold text-slate-900">${escapeHtml(s.shift)}</td>
+              <td class="py-3 px-4 text-right font-semibold">${s.encounters.toLocaleString()}</td>
+              <td class="py-3 px-4 text-right text-slate-500">${s.sharePct}%</td>
+              <td class="py-3 px-4 text-right">${s.meanLos.toFixed(2)} hrs</td>
+              <td class="py-3 px-4 text-right font-bold text-slate-900">${s.medianLos.toFixed(2)} hrs</td>
+            </tr>
+          `
+          )
+          .join('');
+
+        document.getElementById('ageChartTitle').textContent = `Age Bracket Distribution (Median: ${metrics.medianAge} yrs)`;
+        document.getElementById('tableAgeBody').innerHTML = tables.ageData
+          .map(
+            (a) => `
+            <tr class="hover:bg-slate-50">
+              <td class="py-3 px-4 font-semibold text-slate-900">${escapeHtml(a.name)}</td>
+              <td class="py-3 px-4 text-right font-semibold">${a.value.toLocaleString()}</td>
+              <td class="py-3 px-4 text-right text-slate-500">${a.sharePct}%</td>
+              <td class="py-3 px-4 text-right">${a.meanLos.toFixed(2)} hrs</td>
+              <td class="py-3 px-4 text-right font-bold text-slate-900">${a.medianLos.toFixed(2)} hrs</td>
+            </tr>
+          `
+          )
+          .join('');
+
+        document.getElementById('tableRaceBody').innerHTML = tables.raceData
+          .map(
+            (r) => `
+            <tr class="hover:bg-slate-50">
+              <td class="py-3 px-4 font-semibold text-slate-900">${escapeHtml(r.race)}</td>
+              <td class="py-3 px-4 text-right font-semibold">${r.encounters.toLocaleString()}</td>
+              <td class="py-3 px-4 text-right text-slate-500">${r.sharePct}%</td>
+              <td class="py-3 px-4 text-right font-bold text-slate-900">${r.medianLos.toFixed(2)} hrs</td>
+            </tr>
+          `
+          )
+          .join('');
+
+        document.getElementById('repeatVisitorCards').innerHTML = `
+          <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-center">
+            <div class="text-xs font-semibold text-slate-500">1 Visit Only</div>
+            <div class="text-xl font-extrabold text-slate-900 mt-1">${metrics.repeatStats.singleVisitPatients.toLocaleString()}</div>
+          </div>
+          <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
+            <div class="text-xs font-semibold text-amber-800">2 Visits</div>
+            <div class="text-xl font-extrabold text-amber-900 mt-1">${metrics.repeatStats.twoVisitPatients.toLocaleString()}</div>
+          </div>
+          <div class="bg-red-50 border border-red-200 rounded-xl p-3 text-center">
+            <div class="text-xs font-semibold text-red-800">3+ Visits (Max ${metrics.repeatStats.maxPatientVisits})</div>
+            <div class="text-xl font-extrabold text-red-900 mt-1">${metrics.repeatStats.threePlusPatients.toLocaleString()}</div>
+          </div>
+        `;
+
+        document.getElementById('tableVisitBody').innerHTML = tables.visitTypeData
+          .map(
+            (v) => `
+            <tr class="hover:bg-slate-50">
+              <td class="py-2.5 px-3 font-semibold text-slate-900">${escapeHtml(v.type)}</td>
+              <td class="py-2.5 px-3 text-right font-semibold">${v.encounters.toLocaleString()}</td>
+              <td class="py-2.5 px-3 text-right text-slate-500">${v.sharePct}%</td>
+              <td class="py-2.5 px-3 text-right font-bold text-slate-900">${v.medianLos.toFixed(2)} hrs</td>
+            </tr>
+          `
+          )
+          .join('');
+
+        // 5. Render Paginated PDPA-Cleaned Dataset Table
+        renderCleanedDataTable();
+      }
+
+      function renderCharts(charts) {
+        if (typeof Chart === 'undefined') return;
+        const isMedian = state.losMetricMode === 'median';
+        document.getElementById('chartZoneLosTitle').textContent = `${isMedian ? 'Median' : 'Mean'} Turnaround Time (Hours) by Zone`;
+
+        // Destroy existing instances cleanly
+        Object.keys(state.charts).forEach((k) => {
+          if (state.charts[k]) {
+            state.charts[k].destroy();
+            state.charts[k] = null;
+          }
+        });
+
+        // 1. Zone Volume Bar Chart
+        const ctxVol = document.getElementById('chartZoneVolume');
+        if (ctxVol) {
+          state.charts.zoneVolume = new Chart(ctxVol, {
+            type: 'bar',
+            data: {
+              labels: charts.zoneData.map((z) => z.shortZone),
+              datasets: [{
+                label: 'Encounters',
+                data: charts.zoneData.map((z) => z.encounters),
+                backgroundColor: charts.zoneData.map((z) => z.color),
+                borderRadius: 6
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              onClick: (_, elements) => {
+                if (elements.length > 0) {
+                  const idx = elements[0].index;
+                  const clickedZone = charts.zoneData[idx].zone;
+                  state.filters.zone = state.filters.zone === clickedZone ? 'ALL' : clickedZone;
+                  document.getElementById('filterZone').value = state.filters.zone;
+                  applyFiltersAndRender();
+                }
+              },
+              plugins: { legend: { display: false } },
+              scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } }
+            }
+          });
+        }
+
+        // 2. Zone LOS Bar Chart
+        const ctxLos = document.getElementById('chartZoneLos');
+        if (ctxLos) {
+          state.charts.zoneLos = new Chart(ctxLos, {
+            type: 'bar',
+            data: {
+              labels: charts.zoneData.map((z) => z.shortZone),
+              datasets: [{
+                label: isMedian ? 'Median LOS (hrs)' : 'Mean LOS (hrs)',
+                data: charts.zoneData.map((z) => (isMedian ? z.medianLos : z.meanLos)),
+                backgroundColor: charts.zoneData.map((z) => z.color),
+                borderRadius: 6
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { legend: { display: false } },
+              scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } }
+            }
+          });
+        }
+
+        // 3. 24-Hour Combo Chart
+        const ctxHourly = document.getElementById('chartHourlyCombo');
+        if (ctxHourly) {
+          state.charts.hourlyCombo = new Chart(ctxHourly, {
+            data: {
+              labels: charts.hourlySeries.map((h) => h.label),
+              datasets: [
+                {
+                  type: 'bar',
+                  label: 'Patient Arrivals',
+                  data: charts.hourlySeries.map((h) => h.count),
+                  backgroundColor: 'rgba(59, 130, 246, 0.85)',
+                  borderRadius: 4,
+                  yAxisID: 'y'
+                },
+                {
+                  type: 'line',
+                  label: isMedian ? 'Median LOS (hrs)' : 'Mean LOS (hrs)',
+                  data: charts.hourlySeries.map((h) => (isMedian ? h.medianLos : h.meanLos)),
+                  borderColor: '#dc2626',
+                  backgroundColor: '#dc2626',
+                  borderWidth: 2.5,
+                  tension: 0.3,
+                  pointRadius: 3,
+                  yAxisID: 'y1'
+                }
+              ]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: {
+                y: { type: 'linear', position: 'left', beginAtZero: true, title: { display: true, text: 'Arrivals' } },
+                y1: { type: 'linear', position: 'right', beginAtZero: true, grid: { drawOnChartArea: false }, title: { display: true, text: 'LOS (Hours)' } }
+              }
+            }
+          });
+        }
+
+        // 4. Top 15 Beds Horizontal Bar Chart
+        const ctxBeds = document.getElementById('chartTopBeds');
+        if (ctxBeds && charts.topBedsData.length > 0) {
+          state.charts.topBeds = new Chart(ctxBeds, {
+            type: 'bar',
+            data: {
+              labels: charts.topBedsData.map((b) => b.bed),
+              datasets: [{
+                label: 'Encounters',
+                data: charts.topBedsData.map((b) => b.encounters),
+                backgroundColor: '#0ea5e9',
+                borderRadius: 4
+              }]
+            },
+            options: {
+              indexAxis: 'y',
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { legend: { display: false } },
+              scales: { x: { beginAtZero: true } }
+            }
+          });
+        }
+
+        // 5. Age Bracket Donut Chart
+        const ctxAge = document.getElementById('chartAgeDonut');
+        if (ctxAge) {
+          state.charts.ageDonut = new Chart(ctxAge, {
+            type: 'doughnut',
+            data: {
+              labels: charts.ageData.map((a) => a.name),
+              datasets: [{
+                data: charts.ageData.map((a) => a.value),
+                backgroundColor: charts.ageData.map((a) => a.color),
+                borderWidth: 2,
+                borderColor: '#ffffff'
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              cutout: '58%',
+              onClick: (_, elements) => {
+                if (elements.length > 0) {
+                  const clickedAge = charts.ageData[elements[0].index].name;
+                  state.filters.ageGroup = state.filters.ageGroup === clickedAge ? 'ALL' : clickedAge;
+                  document.getElementById('filterAge').value = state.filters.ageGroup;
+                  applyFiltersAndRender();
+                }
+              },
+              plugins: { legend: { position: 'bottom' } }
+            }
+          });
+        }
+      }
+
+      function renderHeatmap(matrix, maxVal) {
+        document.getElementById('heatmapPeakLabel').textContent = `Peak (${maxVal})`;
+        const headerRow = `
+          <div class="grid grid-cols-[95px_repeat(24,minmax(24px,1fr))] gap-1 text-[10px] font-bold text-slate-500 mb-1">
+            <div>Day / Hour</div>
+            ${Array.from({ length: 24 }, (_, h) => `<div class="text-center">${String(h).padStart(2, '0')}</div>`).join('')}
+          </div>
+        `;
+
+        const bodyRows = DAYS_OF_WEEK.map((day) => {
+          const cells = matrix[day]
+            .map((val, h) => {
+              const intensity = val / (maxVal || 1);
+              let cls = 'bg-slate-50 text-slate-400';
+              if (val > 0 && intensity < 0.25) cls = 'bg-amber-100 text-amber-900';
+              else if (intensity >= 0.25 && intensity < 0.5) cls = 'bg-amber-300 text-amber-950';
+              else if (intensity >= 0.5 && intensity < 0.75) cls = 'bg-orange-500 text-white font-semibold';
+              else if (intensity >= 0.75) cls = 'bg-red-600 text-white font-bold';
+              return `<div title="${day} ${String(h).padStart(2, '0')}:00 — ${val} encounters" class="h-7 rounded flex items-center justify-center text-[10px] ${cls}">${val}</div>`;
+            })
+            .join('');
+          return `
+            <div class="grid grid-cols-[95px_repeat(24,minmax(24px,1fr))] gap-1 mb-1 items-center">
+              <div class="text-xs font-bold text-slate-700 pr-2">${day}</div>
+              ${cells}
+            </div>
+          `;
+        }).join('');
+
+        document.getElementById('heatmapContainer').innerHTML = headerRow + bodyRows;
+      }
+
+      function renderCleanedDataTable() {
+        const total = state.filteredRecords.length;
+        const totalPages = Math.max(1, Math.ceil(total / state.pageSize));
+        if (state.tablePage > totalPages) state.tablePage = totalPages;
+
+        const startIdx = (state.tablePage - 1) * state.pageSize;
+        const slice = state.filteredRecords.slice(startIdx, startIdx + state.pageSize);
+
+        document.getElementById('cleanedTableTitle').textContent = `Cleaned & PDPA-Anonymized Dataset (${total.toLocaleString()} Records)`;
+        document.getElementById('paginationInfo').textContent = total
+          ? `Showing ${startIdx + 1}–${Math.min(startIdx + state.pageSize, total)} of ${total.toLocaleString()} records`
+          : 'Showing 0 records';
+        document.getElementById('pageNumberText').textContent = `Page ${state.tablePage} of ${totalPages}`;
+        document.getElementById('btnPrevPage').disabled = state.tablePage <= 1;
+        document.getElementById('btnNextPage').disabled = state.tablePage >= totalPages;
+
+        document.getElementById('cleanedTableBody').innerHTML = slice
+          .map(
+            (r) => `
+            <tr class="hover:bg-slate-50">
+              <td class="py-2 px-3 font-mono text-slate-800">${escapeHtml(r.encounterId)}</td>
+              <td class="py-2 px-3 text-slate-600">${escapeHtml(r.bedNo)}</td>
+              <td class="py-2 px-3 font-semibold text-slate-800">${escapeHtml(r.zone)}</td>
+              <td class="py-2 px-3 text-slate-600">${escapeHtml(r.encounterDate)}</td>
+              <td class="py-2 px-3 text-slate-600">${escapeHtml(r.dischargeDate)}</td>
+              <td class="py-2 px-3 text-right">${r.losMinutes.toFixed(1)}</td>
+              <td class="py-2 px-3 text-right font-bold text-slate-900">${r.losHours.toFixed(2)}</td>
+              <td class="py-2 px-3 text-slate-600">${escapeHtml(r.shift.split(' ')[0])}</td>
+              <td class="py-2 px-3 text-slate-600">${escapeHtml(r.ageGroup)}</td>
+              <td class="py-2 px-3 text-slate-600">${escapeHtml(r.visitType)}</td>
+            </tr>
+          `
+          )
+          .join('');
+      }
+
+      // ======================================================================
+      // MAIN PIPELINE: UPLOAD -> AUTO-ANALYZE -> AUTO-GOOGLE SHEET -> AUTO-PDF
+      // ======================================================================
+
+      async function runFullAnalysisPipeline(triggerAutoPdf = false, triggerAutoGoogleSheet = false) {
+        document.getElementById('headerFileName').textContent = state.sourceName;
+
+        const sheetNames = Object.keys(state.workbookSheets);
+        const sheetSel = document.getElementById('sheetSelector');
+        if (sheetNames.length > 1) {
+          sheetSel.classList.remove('hidden');
+          sheetSel.innerHTML = sheetNames
+            .map((s) => `<option value="${escapeHtml(s)}" ${s === state.activeSheet ? 'selected' : ''}>Sheet: ${escapeHtml(s)} (${state.workbookSheets[s].records.length})</option>`)
+            .join('');
+        } else {
+          sheetSel.classList.add('hidden');
+        }
+
+        renderColumnMapper();
+        state.allCleanedRecords = normalizeEtdRecords(state.rawRecords, state.columnMapping);
+
+        if (state.allCleanedRecords.length === 0) {
+          document.getElementById('columnMapperPanel').classList.remove('hidden');
+          showStatusBanner('error', 'Column Mapping Needed', 'Rows were detected, but Encounter Date / Bed No. columns could not be matched automatically. Please verify the Columns drawer above.');
+          return;
+        }
+
+        populateFilterDropdowns();
+        applyFiltersAndRender();
+
+        // 1. Automatically Generate & Download PDF Report
+        let pdfInfo = null;
+        if (triggerAutoPdf && state.stats) {
+          pdfInfo = generateAndDownloadPdf(state.stats, state.allCleanedRecords);
+        }
+
+        // 2. Automatically Push Analysis to a New Sheet Tab in Google Sheets
+        if (triggerAutoGoogleSheet && state.googleSheets.autoSync && state.stats) {
+          await pushAnalysisToGoogleSheet(state.stats, state.allCleanedRecords);
+        } else if (pdfInfo) {
+          showStatusBanner(
+            'success',
+            `Auto-Analysis Complete (${state.allCleanedRecords.length.toLocaleString()} Encounters) & PDF Downloaded!`,
+            `Generated PDPA-anonymized report "${pdfInfo.filename}". Connect your Google Sheet Backend above to auto-create a new sheet tab on every upload.`,
+            pdfInfo.blobUrl,
+            'Open PDF Report ↗'
+          );
+        }
+      }
+
+      async function handleFileUpload(file) {
+        if (!file) return;
+        if (typeof XLSX === 'undefined') {
+          showStatusBanner('error', 'Spreadsheet Library Loading', 'Please wait 2 seconds for the Excel parser to finish loading and try again.');
+          return;
+        }
+
+        showStatusBanner('info', `Analyzing "${file.name}"...`, 'Extracting sheets, calculating turnaround times, building PDF, and preparing Google Sheet tab...');
+
+        try {
+          const buffer = await file.arrayBuffer();
+          const workbook = XLSX.read(new Uint8Array(buffer), { type: 'array', cellDates: true });
+          if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+            throw new Error('The uploaded workbook contains no sheets.');
+          }
+
+          const parsedSheets = {};
+          let bestSheet = workbook.SheetNames[0];
+          let maxRows = -1;
+
+          workbook.SheetNames.forEach((name) => {
+            const extracted = extractSheetTableAndMapping(workbook.Sheets[name]);
+            parsedSheets[name] = extracted;
+            if (extracted.records.length > maxRows) {
+              maxRows = extracted.records.length;
+              bestSheet = name;
+            }
+          });
+
+          const chosen = parsedSheets[bestSheet];
+          if (!chosen || chosen.records.length === 0) {
+            throw new Error('No tabular patient records were found in the uploaded file.');
+          }
+
+          state.workbookSheets = parsedSheets;
+          state.activeSheet = bestSheet;
+          state.sourceName = file.name;
+          state.rawRecords = chosen.records;
+          state.availableHeaders = chosen.headers;
+          state.columnMapping = chosen.mapping;
+          resetAllFilters();
+
+          await runFullAnalysisPipeline(true, true);
+        } catch (err) {
+          console.error(err);
+          showStatusBanner('error', 'Excel Upload Error', err.message || 'Unable to parse the uploaded spreadsheet.');
+        }
+      }
+
+      function generateDemoData() {
+        const rows = [];
+        const zones = [
+          { prefix: 'ETD-GZ1', weight: 54, avgLos: 2.9 },
+          { prefix: 'ETD-YZLR1', weight: 16, avgLos: 4.6 },
+          { prefix: 'ETD-OBZ', weight: 14, avgLos: 5.1 },
+          { prefix: 'ETD-ASB1-HR', weight: 8, avgLos: 1.9 },
+          { prefix: 'ETD-RZLR1', weight: 8, avgLos: 5.2 }
+        ];
+        const races = ['MELAYU', 'MELAYU', 'MELAYU', 'MELAYU', 'LAIN-LAIN', 'CINA', 'INDIA', 'BUKAN WARGANEGARA'];
+        const baseDate = new Date(2026, 9, 31, 23, 45, 0);
+
+        for (let i = 0; i < 2248; i++) {
+          const r = Math.random() * 100;
+          let cum = 0;
+          let chosen = zones[0];
+          for (const z of zones) {
+            cum += z.weight;
+            if (r <= cum) { chosen = z; break; }
+          }
+
+          const daysAgo = Math.floor(Math.random() * 31);
+          const hrRoll = Math.random();
+          let hour = Math.floor(Math.random() * 24);
+          if (hrRoll < 0.35) hour = 17 + Math.floor(Math.random() * 5);
+          else if (hrRoll < 0.65) hour = 9 + Math.floor(Math.random() * 4);
+
+          const encDate = new Date(baseDate);
+          encDate.setDate(baseDate.getDate() - daysAgo);
+          encDate.setHours(hour, Math.floor(Math.random() * 60), Math.floor(Math.random() * 60));
+
+          const losHours = Math.max(0.25, chosen.avgLos + (Math.random() * 3.4 - 1.4));
+          const disDate = new Date(encDate.getTime() + Math.round(losHours * 3600 * 1000));
+
+          const ageRoll = Math.random();
+          let age = 28;
+          if (ageRoll < 0.25) age = Math.floor(Math.random() * 12);
+          else if (ageRoll < 0.38) age = 12 + Math.floor(Math.random() * 6);
+          else if (ageRoll < 0.64) age = 18 + Math.floor(Math.random() * 22);
+          else if (ageRoll < 0.82) age = 40 + Math.floor(Math.random() * 20);
+          else age = 60 + Math.floor(Math.random() * 32);
+
+          rows.push({
+            'Encounter Id': `HKNR-ENC-${2600043140 + i}`,
+            'Bed No.': `${chosen.prefix}-00${(i % 7) + 1}`,
+            'Patient Name': `DEMO PATIENT ${(i % 2003) + 1}`,
+            'Age': age,
+            'Race': races[i % races.length],
+            'Encounter Date': encDate,
+            'Discharge Date': disDate,
+            'No. of Visit': i % 10 === 0 ? 'FOLLOW UP' : '1ST TIME'
+          });
+        }
+
+        const headers = ['Encounter Id', 'Bed No.', 'Patient Name', 'Age', 'Race', 'Encounter Date', 'Discharge Date', 'No. of Visit'];
+        const mapping = {
+          encounterId: 'Encounter Id',
+          bedNo: 'Bed No.',
+          patientName: 'Patient Name',
+          age: 'Age',
+          race: 'Race',
+          encounterDate: 'Encounter Date',
+          dischargeDate: 'Discharge Date',
+          visitType: 'No. of Visit'
+        };
+
+        state.workbookSheets = { Sheet1: { headers, records: rows, mapping } };
+        state.activeSheet = 'Sheet1';
+        state.sourceName = 'Demo_ETD_Oct2026.xlsx';
+        state.rawRecords = rows;
+        state.availableHeaders = headers;
+        state.columnMapping = mapping;
+        resetAllFilters();
+        runFullAnalysisPipeline(false, false);
+      }
+
+      // ======================================================================
+      // EVENT LISTENERS & INITIALIZATION
+      // ======================================================================
+
+      document.addEventListener('DOMContentLoaded', () => {
+        // Populate Apps Script preview & pre-configured URL if present
+        document.getElementById('appsScriptPreview').textContent = GOOGLE_APPS_SCRIPT_CODE;
+        if (DEFAULT_APPS_SCRIPT_URL) {
+          document.getElementById('appsScriptUrlInput').value = DEFAULT_APPS_SCRIPT_URL;
+          updateGsConnectionUi(true);
+          refreshRemoteSheetList();
+        }
+
+        // File upload & drag-drop
+        document.getElementById('excelFileInput').addEventListener('change', (e) => {
+          const f = e.target.files?.[0];
+          if (f) handleFileUpload(f);
+          e.target.value = '';
+        });
+
+        window.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          document.getElementById('dragOverlay').classList.remove('hidden');
+        });
+        window.addEventListener('dragleave', (e) => {
+          if (e.relatedTarget === null) {
+            document.getElementById('dragOverlay').classList.add('hidden');
+          }
+        });
+        window.addEventListener('drop', (e) => {
+          e.preventDefault();
+          document.getElementById('dragOverlay').classList.add('hidden');
+          const f = e.dataTransfer?.files?.[0];
+          if (f) handleFileUpload(f);
+        });
+
+        // Sheet switcher
+        document.getElementById('sheetSelector').addEventListener('change', (e) => {
+          const sh = state.workbookSheets[e.target.value];
+          if (!sh) return;
+          state.activeSheet = e.target.value;
+          state.rawRecords = sh.records;
+          state.availableHeaders = sh.headers;
+          state.columnMapping = sh.mapping;
+          resetAllFilters();
+          runFullAnalysisPipeline(false, false);
+        });
+
+        // Header Panel Toggles
+        document.getElementById('btnToggleSheetsPanel').addEventListener('click', () => {
+          document.getElementById('googleSheetsPanel').classList.toggle('hidden');
+        });
+        document.getElementById('btnToggleMapper').addEventListener('click', () => {
+          document.getElementById('columnMapperPanel').classList.toggle('hidden');
+        });
+        document.getElementById('btnLoadDemo').addEventListener('click', () => {
+          generateDemoData();
+          showStatusBanner('info', 'Demo Dataset Loaded', 'Showing 2,248 simulated ETD encounters. Upload your Excel file to auto-analyze and push to Google Sheets.');
+        });
+        document.getElementById('btnManualPdf').addEventListener('click', () => {
+          if (!state.stats) return;
+          const pdf = generateAndDownloadPdf(state.stats, state.filteredRecords);
+          if (pdf) {
+            showStatusBanner('success', 'PDF Report Exported', `Downloaded "${pdf.filename}".`, pdf.blobUrl, 'Open PDF ↗');
+          }
+        });
+
+        // Apply Column Mapping Changes
+        document.getElementById('btnApplyMapping').addEventListener('click', () => {
+          document.querySelectorAll('.map-select').forEach((sel) => {
+            state.columnMapping[sel.getAttribute('data-map-key')] = sel.value;
+          });
+          runFullAnalysisPipeline(false, false);
+          showStatusBanner('success', 'Column Mapping Applied', 'Recalculated all metrics using your updated column assignments.');
+        });
+
+        // Google Sheets Mode Switcher & Actions
+        document.getElementById('modeAppsScriptBtn').addEventListener('click', () => {
+          state.googleSheets.mode = 'apps_script';
+          document.getElementById('modeAppsScriptBtn').className = 'px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 text-white';
+          document.getElementById('modeOauthApiBtn').className = 'px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200';
+          document.getElementById('appsScriptConfigBox').classList.remove('hidden');
+          document.getElementById('oauthApiConfigBox').classList.add('hidden');
+        });
+
+        document.getElementById('modeOauthApiBtn').addEventListener('click', () => {
+          state.googleSheets.mode = 'oauth';
+          document.getElementById('modeOauthApiBtn').className = 'px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 text-white';
+          document.getElementById('modeAppsScriptBtn').className = 'px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200';
+          document.getElementById('oauthApiConfigBox').classList.remove('hidden');
+          document.getElementById('appsScriptConfigBox').classList.add('hidden');
+        });
+
+        document.getElementById('btnConnectAppsScript').addEventListener('click', () => {
+          const url = document.getElementById('appsScriptUrlInput').value.trim();
+          if (!url) {
+            showStatusBanner('warning', 'Missing Web App URL', 'Please paste your deployed Google Apps Script Web App URL first.');
+            return;
+          }
+          state.googleSheets.appsScriptUrl = url;
+          refreshRemoteSheetList();
+        });
+
+        document.getElementById('btnConnectOauth').addEventListener('click', () => {
+          const tok = document.getElementById('oauthTokenInput').value.trim();
+          if (!tok) {
+            showStatusBanner('warning', 'Missing OAuth Token', 'Please paste a valid Google OAuth 2.0 Bearer access token first.');
+            return;
+          }
+          state.googleSheets.oauthToken = tok;
+          refreshRemoteSheetList();
+        });
+
+        document.getElementById('autoSyncCheckbox').addEventListener('change', (e) => {
+          state.googleSheets.autoSync = e.target.checked;
+        });
+
+        document.getElementById('btnSyncNow').addEventListener('click', () => {
+          state.googleSheets.appsScriptUrl = document.getElementById('appsScriptUrlInput').value.trim();
+          state.googleSheets.oauthToken = document.getElementById('oauthTokenInput').value.trim();
+          if (state.stats) {
+            pushAnalysisToGoogleSheet(state.stats, state.filteredRecords);
+          }
+        });
+
+        document.getElementById('btnLoadRemoteSheet').addEventListener('click', () => {
+          const selectedTab = document.getElementById('remoteSheetSelect').value;
+          if (selectedTab) loadRemoteSheetIntoDashboard(selectedTab);
+        });
+
+        // Copy Apps Script using execCommand('copy') for iframe compatibility
+        document.getElementById('btnCopyAppsScript').addEventListener('click', () => {
+          const textarea = document.createElement('textarea');
+          textarea.value = GOOGLE_APPS_SCRIPT_CODE;
+          textarea.style.position = 'fixed';
+          textarea.style.opacity = '0';
+          document.body.appendChild(textarea);
+          textarea.select();
+          try {
+            document.execCommand('copy');
+            showStatusBanner('success', 'Google Apps Script Copied!', 'Paste it into Extensions > Apps Script inside your Google Sheet and deploy as a Web App.');
+          } catch {
+            showStatusBanner('warning', 'Copy Manually', 'Select the code block in the dark box on the right and press Ctrl+C / Cmd+C.');
+          }
+          document.body.removeChild(textarea);
+        });
+
+        // Download Pre-Configured edstats.html with Web App URL baked in
+        document.getElementById('btnDownloadConfiguredHtml').addEventListener('click', () => {
+          const url = document.getElementById('appsScriptUrlInput').value.trim();
+          if (!url) {
+            showStatusBanner('warning', 'Enter Web App URL First', 'Paste your Apps Script Web App URL before saving a pre-configured copy of edstats.html.');
+            return;
+          }
+          const rawHtml = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+          const updatedHtml = rawHtml.replace(
+            /const DEFAULT_APPS_SCRIPT_URL = "[^"]*";/,
+            `const DEFAULT_APPS_SCRIPT_URL = ${JSON.stringify(url)};`
+          );
+          const blob = new Blob([updatedHtml], { type: 'text/html;charset=utf-8' });
+          const blobUrl = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = blobUrl;
+          a.download = 'edstats.html';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+          showStatusBanner('success', 'Saved Pre-Configured edstats.html', 'Your Google Apps Script Web App URL is now embedded inside your downloaded edstats.html file.');
+        });
+
+        // Interactive Filters & Toggles
+        document.getElementById('filterZone').addEventListener('change', (e) => {
+          state.filters.zone = e.target.value;
+          state.tablePage = 1;
+          applyFiltersAndRender();
+        });
+        document.getElementById('filterShift').addEventListener('change', (e) => {
+          state.filters.shift = e.target.value;
+          state.tablePage = 1;
+          applyFiltersAndRender();
+        });
+        document.getElementById('filterAge').addEventListener('change', (e) => {
+          state.filters.ageGroup = e.target.value;
+          state.tablePage = 1;
+          applyFiltersAndRender();
+        });
+        document.getElementById('filterVisit').addEventListener('change', (e) => {
+          state.filters.visitType = e.target.value;
+          state.tablePage = 1;
+          applyFiltersAndRender();
+        });
+        document.getElementById('filterSearch').addEventListener('input', (e) => {
+          state.filters.search = e.target.value;
+          state.tablePage = 1;
+          applyFiltersAndRender();
+        });
+        document.getElementById('btnResetFilters').addEventListener('click', () => {
+          resetAllFilters();
+          populateFilterDropdowns();
+          applyFiltersAndRender();
+        });
+
+        document.getElementById('btnLosMedian').addEventListener('click', () => {
+          state.losMetricMode = 'median';
+          document.getElementById('btnLosMedian').className = 'px-3 py-1 rounded-lg font-bold bg-white text-slate-900 shadow-sm transition-colors';
+          document.getElementById('btnLosMean').className = 'px-3 py-1 rounded-lg font-bold text-slate-600 transition-colors';
+          renderDashboardVisuals();
+        });
+        document.getElementById('btnLosMean').addEventListener('click', () => {
+          state.losMetricMode = 'mean';
+          document.getElementById('btnLosMean').className = 'px-3 py-1 rounded-lg font-bold bg-white text-slate-900 shadow-sm transition-colors';
+          document.getElementById('btnLosMedian').className = 'px-3 py-1 rounded-lg font-bold text-slate-600 transition-colors';
+          renderDashboardVisuals();
+        });
+
+        // Navigation Tabs
+        document.querySelectorAll('.tab-btn').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const target = btn.getAttribute('data-tab');
+            state.activeTab = target;
+            document.querySelectorAll('.tab-btn').forEach((b) => {
+              b.className = b === btn
+                ? 'tab-btn flex-1 min-w-[160px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold bg-slate-900 text-white shadow-sm transition-all'
+                : 'tab-btn flex-1 min-w-[160px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-slate-100 transition-all';
+            });
+            document.querySelectorAll('.tab-panel').forEach((panel) => {
+              panel.classList.toggle('hidden', panel.id !== `tab-${target}`);
+            });
+          });
+        });
+
+        // Data Table Pagination & Exports
+        document.getElementById('btnPrevPage').addEventListener('click', () => {
+          if (state.tablePage > 1) {
+            state.tablePage--;
+            renderCleanedDataTable();
+          }
+        });
+        document.getElementById('btnNextPage').addEventListener('click', () => {
+          const maxPages = Math.max(1, Math.ceil(state.filteredRecords.length / state.pageSize));
+          if (state.tablePage < maxPages) {
+            state.tablePage++;
+            renderCleanedDataTable();
+          }
+        });
+
+        document.getElementById('btnExportCsv').addEventListener('click', () => {
+          if (!state.filteredRecords.length) return;
+          const headers = ['Encounter Id', 'Bed No.', 'Zone', 'Encounter Date', 'Discharge Date', 'LOS_minutes', 'LOS_hours', 'Shift', 'Day_of_Week', 'Age', 'Age_Group', 'Race', 'No_of_Visit'];
+          const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+          const lines = [
+            headers.join(','),
+            ...state.filteredRecords.map((r) => [r.encounterId, r.bedNo, r.zone, r.encounterDate, r.dischargeDate, r.losMinutes, r.losHours, r.shift, r.dayOfWeek, r.age ?? '', r.ageGroup, r.race, r.visitType].map(esc).join(','))
+          ];
+          const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `PDPA_Cleaned_${state.sourceName.replace(/\.[^/.]+$/, '')}.csv`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 5000);
+        });
+
+        document.getElementById('btnExportXlsx').addEventListener('click', () => {
+          if (!state.stats || typeof XLSX === 'undefined') return;
+          const payload = buildGoogleSheetPayload(state.stats, state.filteredRecords);
+          const wb = XLSX.utils.book_new();
+          const wsSummary = XLSX.utils.aoa_to_sheet(payload.rows);
+          XLSX.utils.book_append_sheet(wb, wsSummary, payload.sheetName.slice(0, 31));
+          XLSX.writeFile(wb, `ETD_Analysis_${state.sourceName.replace(/\.[^/.]+$/, '')}.xlsx`);
+        });
+
+        // Load initial demo dataset so dashboard renders immediately
+        generateDemoData();
+      });
+    })();
+  </script>
+</body>
+</html>
