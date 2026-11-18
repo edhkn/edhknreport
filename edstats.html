@@ -61,7 +61,7 @@
       </div>
       <h3 class="text-xl font-bold text-slate-900">Drop Excel Form to Stage File</h3>
       <p class="text-sm text-slate-500 mt-1.5">
-        Your file will be loaded and ready—then click <strong>2. Start Full Analysis</strong> to compute all data, download PDF, and save to Google Sheets.
+        Your file will be staged—then push <strong>2. Start Full Analysis</strong> to compute all data, download PDF, and save to Google Sheets.
       </p>
     </div>
   </div>
@@ -603,6 +603,37 @@
       }
 
       // ======================================================================
+      // CRITICAL FIX FOR HIS EXCEL FILES WITH TRUNCATED <dimension ref="A1:A...">
+      // ======================================================================
+
+      function recomputeFullSheetRange(ws) {
+        if (!ws || typeof ws !== 'object') return;
+        let minR = Infinity;
+        let minC = Infinity;
+        let maxR = -1;
+        let maxC = -1;
+
+        Object.keys(ws).forEach((key) => {
+          if (key[0] === '!') return;
+          if (!/^[A-Z]{1,3}\d+$/.test(key)) return;
+          const cell = ws[key];
+          if (!cell || (cell.v === undefined && cell.w === undefined && cell.f === undefined)) return;
+          const decoded = XLSX.utils.decode_cell(key);
+          if (decoded.r < minR) minR = decoded.r;
+          if (decoded.r > maxR) maxR = decoded.r;
+          if (decoded.c < minC) minC = decoded.c;
+          if (decoded.c > maxC) maxC = decoded.c;
+        });
+
+        if (maxR >= 0 && maxC >= 0) {
+          ws['!ref'] = XLSX.utils.encode_range({
+            s: { r: minR, c: minC },
+            e: { r: maxR, c: maxC }
+          });
+        }
+      }
+
+      // ======================================================================
       // BULLETPROOF MULTI-FORMAT DATE, TIME & DURATION PARSER
       // ======================================================================
 
@@ -610,12 +641,13 @@
         if (val === null || val === undefined || val === '') return null;
         if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
 
-        // 1. Numeric Excel Serial Timestamp (use SheetJS SSF.parse_date_code for exact local calendar fields)
+        // 1. Numeric Excel Serial Timestamp (with fractional seconds p.u)
         if (typeof val === 'number' && isFinite(val) && val > 1000) {
           if (typeof XLSX !== 'undefined' && XLSX.SSF && typeof XLSX.SSF.parse_date_code === 'function') {
             const p = XLSX.SSF.parse_date_code(val);
             if (p && p.y >= 1900 && p.m >= 1 && p.d >= 1) {
-              const dt = new Date(p.y, p.m - 1, p.d, p.H || 0, p.M || 0, p.S || 0);
+              const ms = p.u ? Math.round(p.u * 1000) : 0;
+              const dt = new Date(p.y, p.m - 1, p.d, p.H || 0, p.M || 0, p.S || 0, ms);
               if (!isNaN(dt.getTime())) return dt;
             }
           }
@@ -627,7 +659,6 @@
           const trimmed = val.trim().replace(/,/g, ' ').replace(/\s+/g, ' ');
           if (!trimmed) return null;
 
-          // Numeric string serial
           if (/^\d{5}(\.\d+)?$/.test(trimmed)) {
             return parseFlexibleDate(parseFloat(trimmed));
           }
@@ -675,7 +706,7 @@
             if (!isNaN(constructed.getTime())) return constructed;
           }
 
-          // 4. Named Month: "31-Oct-2026 23:41:55" or "31 Oct 2026 11:41 PM"
+          // 4. Named Month: "31-Oct-2026 23:41:55"
           const namedMonthMatch = trimmed.match(
             /^(\d{1,2})[\s\-\/]([A-Za-z]{3,9})[\s\-\/](\d{2,4})(?:[T\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?)?$/i
           );
@@ -704,7 +735,6 @@
         return null;
       }
 
-      // Parse separate time-of-day cell (Excel fractional day 0..1 or "HH:mm[:ss] [AM/PM]")
       function parseTimeOnlySeconds(val) {
         if (val === null || val === undefined || val === '') return null;
         if (typeof val === 'number' && isFinite(val)) {
@@ -728,7 +758,6 @@
         return null;
       }
 
-      // Combine a Date column + optional separate Time column
       function combineDateAndTime(dateVal, timeVal) {
         const base = parseFlexibleDate(dateVal);
         if (!base) return null;
@@ -744,11 +773,9 @@
         return base;
       }
 
-      // Parse pre-calculated LOS / Duration column if present (e.g., "03:32:00", "211 mins", "3.5 hrs", or numeric minutes)
       function parseDurationHours(val) {
         if (val === null || val === undefined || val === '') return null;
         if (typeof val === 'number' && isFinite(val) && val > 0) {
-          // If fraction of day (< 2) vs minutes (> 2)
           return val <= 2 ? val * 24 : val / 60;
         }
         const str = String(val).trim().toLowerCase();
@@ -818,6 +845,9 @@
       // ======================================================================
 
       function extractSheetTableAndMapping(sheet) {
+        // Expand !ref across all populated cell keys so truncated <dimension ref="A1:A..."> never drops columns B..Z
+        recomputeFullSheetRange(sheet);
+
         const matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: null });
         if (!matrix || matrix.length === 0) return { headers: [], records: [], mapping: {} };
 
@@ -868,7 +898,6 @@
           records.push(obj);
         }
 
-        // Helper: verify a candidate column actually has non-empty values in the data rows
         const countValidDatesInCol = (colName) => {
           if (!colName) return 0;
           let count = 0;
@@ -907,16 +936,13 @@
           true
         );
 
-        // Content-Based Auto-Recovery: scan all columns for actual date/timestamp columns if either is still missing
         if (!encounterDate || !dischargeDate) {
           const dateCols = uniqueHeaders
             .filter((h) => !/birth|dob|decide/i.test(h))
             .map((h) => ({ header: h, validCount: countValidDatesInCol(h) }))
             .filter((x) => x.validCount > 0);
 
-          if (!encounterDate && dateCols.length >= 1) {
-            encounterDate = dateCols[0].header;
-          }
+          if (!encounterDate && dateCols.length >= 1) encounterDate = dateCols[0].header;
           if (!dischargeDate && dateCols.length >= 2) {
             const second = dateCols.find((d) => d.header !== encounterDate);
             if (second) dischargeDate = second.header;
@@ -959,7 +985,7 @@
           return;
         }
 
-        showStatusBanner('info', `Reading "${file.name}"...`, 'Staging worksheets and detecting date/timestamp columns. Analysis will start when you push "2. Start Full Analysis".', 30);
+        showStatusBanner('info', `Reading "${file.name}"...`, 'Scanning full worksheet cell ranges, detecting headers, and mapping columns...', 30);
         await nextPaintFrame();
 
         try {
@@ -1000,8 +1026,8 @@
           updateStagedFileUi();
           showStatusBanner(
             'warning',
-            `File Staged: "${file.name}" (${chosen.records.length.toLocaleString()} Rows Ready)`,
-            `Detected Arrival: "${chosen.mapping.encounterDate || 'Not Found'}" | Discharge: "${chosen.mapping.dischargeDate || 'Not Found'}". Push "2. Start Full Analysis" to calculate all LOS & statistical tables.`
+            `File Staged: "${file.name}" (${chosen.records.length.toLocaleString()} Rows × ${chosen.headers.length} Columns Ready)`,
+            `Arrival: "${chosen.mapping.encounterDate || 'Not Found'}" | Discharge: "${chosen.mapping.dischargeDate || 'Not Found'}" | Age: "${chosen.mapping.age || 'Not Found'}" | Race: "${chosen.mapping.race || 'Not Found'}". Push "2. Start Full Analysis" to run all calculations.`
           );
         } catch (err) {
           console.error(err);
@@ -1033,7 +1059,7 @@
       }
 
       // ======================================================================
-      // STEP 2: FULL STATISTICAL ANALYSIS ENGINE (WITH ROBUST LOS CALCULATION)
+      // STEP 2: FULL STATISTICAL ANALYSIS ENGINE
       // ======================================================================
 
       function normalizeEtdRecords(rawRows, mapping) {
@@ -1056,7 +1082,6 @@
             mapping.dischargeTime ? row[mapping.dischargeTime] : null
           );
 
-          // Handle time-only Discharge column when paired with Encounter Date
           if (encDate && !disDate && mapping.dischargeDate) {
             const disSecs = parseTimeOnlySeconds(row[mapping.dischargeDate]);
             if (disSecs !== null) {
@@ -1065,7 +1090,7 @@
               const s = disSecs % 60;
               disDate = new Date(encDate.getFullYear(), encDate.getMonth(), encDate.getDate(), h, m, s);
               if (disDate < encDate) {
-                disDate = new Date(disDate.getTime() + 86400 * 1000); // Midnight rollover
+                disDate = new Date(disDate.getTime() + 86400 * 1000);
               }
             }
           }
@@ -1083,7 +1108,6 @@
           let losHours = null;
           if (encDate && disDate) {
             let diffHrs = (disDate.getTime() - encDate.getTime()) / (1000 * 60 * 60);
-            // If same calendar date with time-only midnight wrap (e.g. 23:41 -> 01:00 on same date)
             if (diffHrs < 0 && diffHrs > -24 && encDate.getFullYear() === disDate.getFullYear() && encDate.getMonth() === disDate.getMonth() && encDate.getDate() === disDate.getDate()) {
               effectiveDisDate = new Date(disDate.getTime() + 86400 * 1000);
               diffHrs = (effectiveDisDate.getTime() - encDate.getTime()) / (1000 * 60 * 60);
@@ -1093,7 +1117,6 @@
             }
           }
 
-          // Fallback to direct LOS / Duration column if Discharge Date was missing
           if (losHours === null && mapping.directLos) {
             const directHrs = parseDurationHours(row[mapping.directLos]);
             if (directHrs !== null && isFinite(directHrs) && directHrs >= 0) {
@@ -1102,12 +1125,8 @@
             }
           }
 
-          if (losHours === null || !isFinite(losHours) || losHours < 0) {
-            losHours = 0;
-          }
-          if (!effectiveDisDate) {
-            effectiveDisDate = effectiveEncDate;
-          }
+          if (losHours === null || !isFinite(losHours) || losHours < 0) losHours = 0;
+          if (!effectiveDisDate) effectiveDisDate = effectiveEncDate;
           if (losHours > 0) positiveLosCount++;
 
           const zone = categorizeClinicalZone(bedRaw);
@@ -1646,7 +1665,6 @@
         document.getElementById('headerPeriod').innerHTML = `Period: <strong class="text-slate-700">${escapeHtml(metrics.dateRangeText)}</strong>`;
         document.getElementById('dailyTrendSub').textContent = `Busiest Date: ${metrics.busiestDateLabel} | Quietest Date: ${metrics.quietestDateLabel}`;
 
-        // 1. Render 6 Executive KPI Cards
         const kpiCards = [
           { title: 'Encounters', value: metrics.totalEncounters.toLocaleString(), sub: `Avg <strong>${metrics.avgDailyVisits}</strong> / day (${metrics.activeDays}d)`, color: 'text-slate-900' },
           { title: 'Unique Patients', value: metrics.uniquePatientsCount.toLocaleString(), sub: `<strong>${(metrics.repeatStats.twoVisitPatients + metrics.repeatStats.threePlusPatients).toLocaleString()}</strong> repeat visitors`, color: 'text-slate-900' },
@@ -1668,13 +1686,9 @@
           )
           .join('');
 
-        // 2. Render All 6 Chart.js Charts
         renderAllCharts(charts, instantDraw);
-
-        // 3. Render 7x24 Arrival Surge Heatmap
         renderHeatmap(charts.heatmapMatrix, charts.maxHeatmapCell);
 
-        // 4. Render Clinical Zone Table (Mean LOS, Median LOS, IQR 25-75%, >4 Hours, >6 Hours)
         document.getElementById('tableZoneBody').innerHTML = tables.zoneData
           .map(
             (z) => `
@@ -1845,7 +1859,6 @@
           extraContainer.classList.add('hidden');
         }
 
-        // 5. Render Paginated PDPA-Cleaned Dataset Table
         renderCleanedDataTable();
       }
 
@@ -1862,7 +1875,6 @@
           }
         });
 
-        // 1. Zone Volume Bar Chart
         const ctxVol = document.getElementById('chartZoneVolume');
         if (ctxVol) {
           state.charts.zoneVolume = new Chart(ctxVol, {
@@ -1894,7 +1906,6 @@
           });
         }
 
-        // 2. Zone LOS Bar Chart
         const ctxLos = document.getElementById('chartZoneLos');
         if (ctxLos) {
           state.charts.zoneLos = new Chart(ctxLos, {
@@ -1918,7 +1929,6 @@
           });
         }
 
-        // 3. 24-Hour Arrivals & LOS Combo Chart
         const ctxHourly = document.getElementById('chartHourlyCombo');
         if (ctxHourly) {
           state.charts.hourlyCombo = new Chart(ctxHourly, {
@@ -1958,7 +1968,6 @@
           });
         }
 
-        // 4. Daily Encounter Volume Trend Chart
         const ctxDaily = document.getElementById('chartDailyTrend');
         if (ctxDaily && charts.dailySeries) {
           state.charts.dailyTrend = new Chart(ctxDaily, {
@@ -1985,7 +1994,6 @@
           });
         }
 
-        // 5. Top 15 Beds Horizontal Bar Chart
         const ctxBeds = document.getElementById('chartTopBeds');
         if (ctxBeds && charts.topBedsData.length > 0) {
           state.charts.topBeds = new Chart(ctxBeds, {
@@ -2010,7 +2018,6 @@
           });
         }
 
-        // 6. Age Bracket Donut Chart
         const ctxAge = document.getElementById('chartAgeDonut');
         if (ctxAge) {
           state.charts.ageDonut = new Chart(ctxAge, {
@@ -2730,7 +2737,6 @@
         document.getElementById('appsScriptUrlInput').value = DEFAULT_APPS_SCRIPT_URL;
         refreshRemoteSheetList();
 
-        // Step 1: Upload / Drop Excel File -> Stages file only
         document.getElementById('excelFileInput').addEventListener('change', (e) => {
           const f = e.target.files?.[0];
           if (f) stageExcelFile(f);
@@ -2751,7 +2757,6 @@
           if (f) stageExcelFile(f);
         });
 
-        // Worksheet switcher when workbook has multiple sheets
         document.getElementById('sheetSelector').addEventListener('change', (e) => {
           const sh = state.workbookSheets[e.target.value];
           if (!sh) return;
@@ -2764,12 +2769,10 @@
           showStatusBanner('warning', `Switched to Worksheet "${state.activeSheet}" (${sh.records.length.toLocaleString()} rows)`, 'Push "2. Start Full Analysis" to analyze this worksheet.');
         });
 
-        // Step 2: Explicit Start Analysis Button
         document.getElementById('btnStartAnalysis').addEventListener('click', () => {
           executeFullAnalysisWorkflow(true, true);
         });
 
-        // Output option checkboxes
         document.getElementById('autoPdfCheckbox').addEventListener('change', (e) => {
           state.googleSheets.autoPdf = e.target.checked;
         });
@@ -2777,7 +2780,6 @@
           state.googleSheets.autoSync = e.target.checked;
         });
 
-        // Toolbar toggles
         document.getElementById('btnToggleSheetsPanel').addEventListener('click', () => {
           document.getElementById('googleSheetsPanel').classList.toggle('hidden');
         });
@@ -2796,7 +2798,6 @@
           }
         });
 
-        // Apply manual column mapping & run analysis
         document.getElementById('btnApplyMapping').addEventListener('click', () => {
           document.querySelectorAll('.map-select').forEach((sel) => {
             state.columnMapping[sel.getAttribute('data-map-key')] = sel.value;
@@ -2806,7 +2807,6 @@
           executeFullAnalysisWorkflow(false, false);
         });
 
-        // Google Sheets manual controls
         document.getElementById('btnConnectAppsScript').addEventListener('click', () => {
           state.googleSheets.appsScriptUrl = document.getElementById('appsScriptUrlInput').value.trim();
           refreshRemoteSheetList();
@@ -2820,7 +2820,6 @@
           if (tab) loadRemoteSheetIntoDashboard(tab);
         });
 
-        // Dynamic Slice Filters & Metric toggle
         document.getElementById('filterZone').addEventListener('change', (e) => { state.filters.zone = e.target.value; state.tablePage = 1; applyFiltersAndRender(false); });
         document.getElementById('filterShift').addEventListener('change', (e) => { state.filters.shift = e.target.value; state.tablePage = 1; applyFiltersAndRender(false); });
         document.getElementById('filterAge').addEventListener('change', (e) => { state.filters.ageGroup = e.target.value; state.tablePage = 1; applyFiltersAndRender(false); });
@@ -2845,7 +2844,6 @@
           renderAllDashboardVisuals(false);
         });
 
-        // Navigation Tabs
         document.querySelectorAll('.tab-btn').forEach((btn) => {
           btn.addEventListener('click', () => {
             const target = btn.getAttribute('data-tab');
@@ -2862,7 +2860,6 @@
           });
         });
 
-        // Pagination & Data Exports
         document.getElementById('btnPrevPage').addEventListener('click', () => {
           if (state.tablePage > 1) { state.tablePage--; renderCleanedDataTable(); }
         });
