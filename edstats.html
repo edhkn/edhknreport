@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ETD Auto-Analysis &amp; Google Sheets Engine (edstats.html)</title>
+  <title>ETD Statistical Analysis &amp; Google Sheets Engine (edstats.html)</title>
 
   <!-- Google Fonts: Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -40,6 +40,13 @@
     ::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 9999px; }
     ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
     ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    @keyframes pulseBorder {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.45); }
+      50% { box-shadow: 0 0 0 6px rgba(37, 99, 235, 0); }
+    }
+    .ready-pulse {
+      animation: pulseBorder 1.8s infinite;
+    }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen pb-16 antialiased">
@@ -52,9 +59,9 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
         </svg>
       </div>
-      <h3 class="text-xl font-bold text-slate-900">Drop Excel File to Auto-Analyze</h3>
+      <h3 class="text-xl font-bold text-slate-900">Drop Excel Form to Stage File</h3>
       <p class="text-sm text-slate-500 mt-1.5">
-        Analyzes all data &amp; charts first, creates &amp; downloads your multi-page PDF report, and saves a new sheet tab in Google Sheets.
+        Your file will be loaded and ready—then click <strong>Start Full Analysis</strong> to compute all data, download PDF, and save to Google Sheets.
       </p>
     </div>
   </div>
@@ -71,7 +78,7 @@
           </div>
           <div>
             <h1 class="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight">
-              ETD Auto-Analysis &amp; Google Sheets Engine
+              ETD Statistical Analysis &amp; Google Sheets Engine
             </h1>
           </div>
         </div>
@@ -80,9 +87,8 @@
             <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            <span id="headerFileName">Ready — Upload Excel File</span>
+            <span id="headerFileName">No Excel File Uploaded Yet</span>
           </span>
-          <select id="sheetSelector" class="hidden bg-blue-50 text-blue-800 border border-blue-200 rounded-lg px-2 py-0.5 font-semibold text-xs outline-none"></select>
           <span id="headerPeriod" class="text-slate-500"></span>
           <span class="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg font-semibold">
             PDPA Scrubbed
@@ -90,10 +96,10 @@
         </div>
       </div>
 
-      <!-- Primary Toolbar Actions -->
+      <!-- Secondary Toolbar Actions -->
       <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto">
         <button id="btnToggleSheetsPanel" type="button" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold border transition-colors bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300">
-          <span id="gsStatusDot" class="w-2 h-2 rounded-full bg-emerald-500"></span>
+          <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
           Google Sheet Backend
         </button>
 
@@ -102,31 +108,78 @@
         </button>
 
         <button id="btnLoadDemo" type="button" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors">
-          Demo Data
+          Stage Demo File
         </button>
 
-        <button id="btnManualPdf" type="button" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-slate-800 hover:bg-slate-900 text-white transition-colors shadow-sm">
+        <button id="btnManualPdf" type="button" disabled class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-slate-800 hover:bg-slate-900 disabled:opacity-40 disabled:cursor-not-allowed text-white transition-colors shadow-sm">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
           Export PDF
         </button>
-
-        <label class="relative flex-1 sm:flex-none cursor-pointer">
-          <input id="excelFileInput" type="file" accept=".xlsx,.xls,.csv" class="sr-only" />
-          <span class="w-full inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-bold transition-colors text-xs sm:text-sm shadow-sm">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-            </svg>
-            Upload Excel (Auto-Analyze)
-          </span>
-        </label>
       </div>
     </div>
   </header>
 
   <!-- Main Workspace Container -->
   <main class="max-w-7xl mx-auto px-4 sm:px-6 mt-5 space-y-5">
+
+    <!-- STEP 1 & STEP 2: UPLOAD EXCEL FORM + PUSH ANALYSIS BUTTON CONTROL BAR -->
+    <section class="bg-white border-2 border-blue-200 rounded-2xl p-5 shadow-sm">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
+        <!-- Step 1: Upload / Stage File -->
+        <div class="lg:col-span-5 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <label class="cursor-pointer shrink-0">
+            <input id="excelFileInput" type="file" accept=".xlsx,.xls,.csv" class="sr-only" />
+            <span class="w-full inline-flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white px-4 py-3 rounded-xl font-bold transition-colors text-xs sm:text-sm shadow-sm">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+              1. Upload Excel Form
+            </span>
+          </label>
+
+          <div class="min-w-0 flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2">
+            <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Staged File</div>
+            <div id="stagedFileTitle" class="text-xs sm:text-sm font-bold text-slate-800 truncate">
+              Choose or drag &amp; drop .xlsx / .xls / .csv
+            </div>
+            <div id="stagedFileMeta" class="text-[11px] text-slate-500 truncate">
+              Waiting for Excel form upload...
+            </div>
+          </div>
+        </div>
+
+        <!-- Optional Sheet Selector & Output Toggles -->
+        <div class="lg:col-span-4 flex flex-col gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Worksheet &amp; Outputs</span>
+            <select id="sheetSelector" class="hidden bg-white text-blue-800 border border-blue-300 rounded-lg px-2 py-0.5 font-bold text-xs outline-none"></select>
+          </div>
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-semibold text-slate-700">
+            <label class="inline-flex items-center gap-1.5 cursor-pointer">
+              <input id="autoPdfCheckbox" type="checkbox" checked class="rounded text-blue-600" />
+              Auto-Create PDF
+            </label>
+            <label class="inline-flex items-center gap-1.5 cursor-pointer">
+              <input id="autoSyncCheckbox" type="checkbox" checked class="rounded text-emerald-600" />
+              Auto-New Google Sheet Tab
+            </label>
+          </div>
+        </div>
+
+        <!-- Step 2: Explicit Push Analysis Button -->
+        <div class="lg:col-span-3 flex flex-col">
+          <button id="btnStartAnalysis" type="button" disabled class="w-full inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white px-5 py-3.5 rounded-xl font-extrabold text-sm transition-all shadow-md">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            2. Start Full Analysis
+          </button>
+        </div>
+      </div>
+    </section>
 
     <!-- Step-by-Step Pipeline Status & Download Banner -->
     <div id="statusBannerContainer" class="space-y-3"></div>
@@ -137,8 +190,8 @@
         <div>
           <div class="flex items-center gap-2">
             <h2 class="text-base font-bold text-slate-900">Google Sheets Backend (New Sheet Tab Per Analysis)</h2>
-            <span id="gsBadge" class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-              Connected
+            <span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+              Bound to Spreadsheet
             </span>
           </div>
           <p class="text-xs text-slate-500 mt-0.5">
@@ -170,10 +223,6 @@
               Refresh Tabs
             </button>
           </div>
-          <label class="inline-flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer pt-1">
-            <input id="autoSyncCheckbox" type="checkbox" checked class="rounded text-blue-600" />
-            Automatically create a new Google Sheet tab after analysis &amp; PDF generation
-          </label>
         </div>
 
         <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col justify-between space-y-2.5">
@@ -199,262 +248,287 @@
         <div>
           <h3 class="font-bold text-sm text-slate-900">Detected Schema &amp; Dynamic Extra Columns</h3>
           <p id="extraColsSummary" class="text-xs text-slate-500">
-            All non-empty extra columns in your Excel file are automatically preserved in the dataset, CSV/Excel exports, and Google Sheet tabs.
+            All non-empty extra columns in your Excel file are automatically analyzed and preserved in exports.
           </p>
         </div>
         <button id="btnApplyMapping" type="button" class="text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-xl">
-          Re-Analyze with Mapping
+          Save Mapping &amp; Re-Analyze
         </button>
       </div>
       <div id="mappingSelectGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
     </section>
 
-    <!-- Interactive Slice & Filter Controls -->
-    <section class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm space-y-3">
-      <div class="flex flex-wrap items-center justify-between gap-2">
-        <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-600">
-          <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-          </svg>
-          Dynamic Slice &amp; Filter Controls
-          <span id="activeFilterBadge" class="hidden bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-full text-[11px] font-bold"></span>
-        </div>
-
-        <div class="flex items-center gap-2">
-          <div class="inline-flex rounded-xl bg-slate-100 p-0.5 text-xs">
-            <button id="btnLosMedian" type="button" class="px-3 py-1 rounded-lg font-bold bg-white text-slate-900 shadow-sm transition-colors">Median LOS</button>
-            <button id="btnLosMean" type="button" class="px-3 py-1 rounded-lg font-bold text-slate-600 transition-colors">Mean LOS</button>
-          </div>
-          <button id="btnResetFilters" type="button" class="hidden inline-flex items-center gap-1 text-xs font-bold text-red-600 hover:bg-red-50 px-2.5 py-1.5 rounded-xl transition-colors">Reset Filters</button>
-        </div>
+    <!-- Empty-State Placeholder Before Analysis Starts -->
+    <section id="preAnalysisPlaceholder" class="bg-white border border-slate-200 rounded-2xl p-10 text-center shadow-sm space-y-3">
+      <div class="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto">
+        <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
       </div>
-
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
-        <select id="filterZone" class="text-xs border border-slate-300 rounded-xl px-3 py-2.5 bg-slate-50 focus:bg-white outline-none"><option value="ALL">All Clinical Zones</option></select>
-        <select id="filterShift" class="text-xs border border-slate-300 rounded-xl px-3 py-2.5 bg-slate-50 focus:bg-white outline-none">
-          <option value="ALL">All Roster Shifts</option>
-          <option value="Morning (08:00–14:59)">Morning (08:00–14:59)</option>
-          <option value="Evening (15:00–21:59)">Evening (15:00–21:59)</option>
-          <option value="Night (22:00–07:59)">Night (22:00–07:59)</option>
-        </select>
-        <select id="filterAge" class="text-xs border border-slate-300 rounded-xl px-3 py-2.5 bg-slate-50 focus:bg-white outline-none"><option value="ALL">All Age Groups</option></select>
-        <select id="filterVisit" class="text-xs border border-slate-300 rounded-xl px-3 py-2.5 bg-slate-50 focus:bg-white outline-none"><option value="ALL">All Visit Types</option></select>
-        <input id="filterSearch" type="text" placeholder="Search Encounter ID, Bed, Race, Extra..." class="text-xs border border-slate-300 rounded-xl px-3 py-2.5 bg-slate-50 focus:bg-white outline-none" />
-      </div>
+      <h2 class="text-lg font-extrabold text-slate-900">Upload Your Excel Form &amp; Push "Start Full Analysis"</h2>
+      <p class="text-xs sm:text-sm text-slate-500 max-w-xl mx-auto">
+        Once you upload an Excel spreadsheet and click <strong>2. Start Full Analysis</strong>, this dashboard will compute turnaround times, clinical zones, 24-hour &amp; weekly surge heatmaps, daily trends, bed turnover, demographics, repeat-visitor audits, and any custom columns—then automatically generate your PDF report and create a new sheet tab in Google Sheets.
+      </p>
     </section>
 
-    <!-- 6 Executive KPI Summary Cards -->
-    <section id="kpiGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5"></section>
+    <!-- FULL ANALYTICAL DASHBOARD WORKSPACE (Hidden until Start Full Analysis is pushed) -->
+    <div id="analysisWorkspace" class="hidden space-y-5">
 
-    <!-- Interactive View Navigation Tabs -->
-    <nav class="bg-white rounded-2xl border border-slate-200 p-1.5 flex flex-wrap gap-1.5 shadow-sm">
-      <button data-tab="overview" class="tab-btn flex-1 min-w-[160px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold bg-slate-900 text-white shadow-sm transition-all">Overview &amp; Surge Heatmap</button>
-      <button data-tab="zones" class="tab-btn flex-1 min-w-[160px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-slate-100 transition-all">Zones &amp; Bed Utilization</button>
-      <button data-tab="demographics" class="tab-btn flex-1 min-w-[160px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-slate-100 transition-all">Demographics &amp; Repeat Audit</button>
-      <button data-tab="data" id="tabBtnData" class="tab-btn flex-1 min-w-[160px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-slate-100 transition-all">PDPA-Cleaned Data</button>
-    </nav>
-
-    <!-- TAB 1: OVERVIEW & SURGE HEATMAP -->
-    <section id="tab-overview" class="tab-panel space-y-6">
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-          <h3 class="text-base font-bold text-slate-900">Encounter Volume by Clinical Zone</h3>
-          <p class="text-xs text-slate-500 mb-3">Click any zone bar to filter the entire dashboard.</p>
-          <div class="relative h-72 w-full"><canvas id="chartZoneVolume"></canvas></div>
-        </div>
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-          <h3 id="chartZoneLosTitle" class="text-base font-bold text-slate-900">Median Turnaround Time (Hours) by Zone</h3>
-          <p class="text-xs text-slate-500 mb-3">Comparing turnaround durations across clinical zones.</p>
-          <div class="relative h-72 w-full"><canvas id="chartZoneLos"></canvas></div>
-        </div>
-      </div>
-
-      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-        <h3 class="text-base font-bold text-slate-900">24-Hour Arrival Volume &amp; Turnaround Overlay</h3>
-        <p class="text-xs text-slate-500 mb-3">Hourly patient arrivals (bars) paired with turnaround duration (red line).</p>
-        <div class="relative h-72 w-full"><canvas id="chartHourlyCombo"></canvas></div>
-      </div>
-
-      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-          <div>
-            <h3 class="text-base font-bold text-slate-900">Arrival Surge Heatmap (Day of Week &times; Hour of Day)</h3>
-            <p class="text-xs text-slate-500">Peak arrival hours across the 7-day week.</p>
-          </div>
-          <div class="flex items-center gap-1.5 text-[11px] text-slate-500">
-            <span>Low</span>
-            <span class="w-4 h-3 rounded bg-amber-100 border border-slate-200"></span>
-            <span class="w-4 h-3 rounded bg-amber-300"></span>
-            <span class="w-4 h-3 rounded bg-orange-500"></span>
-            <span class="w-4 h-3 rounded bg-red-600"></span>
-            <span id="heatmapPeakLabel">Peak</span>
-          </div>
-        </div>
-        <div id="heatmapContainer" class="min-w-[760px]"></div>
-      </div>
-    </section>
-
-    <!-- TAB 2: ZONES & BED UTILIZATION -->
-    <section id="tab-zones" class="tab-panel hidden space-y-6">
-      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
-        <div class="p-5 border-b border-slate-100">
-          <h3 class="text-base font-bold text-slate-900">Clinical Zone Performance Matrix</h3>
-          <p class="text-xs text-slate-500">Turnaround distribution and 4-hour / 6-hour breach rates by clinical zone.</p>
-        </div>
-        <table class="w-full text-left border-collapse text-xs sm:text-sm">
-          <thead>
-            <tr class="bg-slate-50 text-slate-600 border-b border-slate-200">
-              <th class="py-3 px-4 font-bold">Clinical Zone</th>
-              <th class="py-3 px-4 font-bold text-right">Encounters</th>
-              <th class="py-3 px-4 font-bold text-right">Share</th>
-              <th class="py-3 px-4 font-bold text-right">Mean LOS</th>
-              <th class="py-3 px-4 font-bold text-right">Median LOS</th>
-              <th class="py-3 px-4 font-bold text-right">IQR (25–75%)</th>
-              <th class="py-3 px-4 font-bold text-right">&gt; 4 Hours</th>
-              <th class="py-3 px-4 font-bold text-right">&gt; 6 Hours</th>
-            </tr>
-          </thead>
-          <tbody id="tableZoneBody" class="divide-y divide-slate-100"></tbody>
-        </table>
-      </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div class="space-y-6">
-          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
-            <div class="p-5 border-b border-slate-100"><h3 class="text-base font-bold text-slate-900">Operational Shift Performance</h3></div>
-            <table class="w-full text-left border-collapse text-xs sm:text-sm">
-              <thead>
-                <tr class="bg-slate-50 text-slate-600 border-b border-slate-200">
-                  <th class="py-3 px-4 font-bold">Shift Window</th>
-                  <th class="py-3 px-4 font-bold text-right">Encounters</th>
-                  <th class="py-3 px-4 font-bold text-right">Share</th>
-                  <th class="py-3 px-4 font-bold text-right">Mean LOS</th>
-                  <th class="py-3 px-4 font-bold text-right">Median LOS</th>
-                </tr>
-              </thead>
-              <tbody id="tableShiftBody" class="divide-y divide-slate-100"></tbody>
-            </table>
+      <!-- Interactive Slice & Filter Controls -->
+      <section class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-600">
+            <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+            Dynamic Slice &amp; Filter Controls
+            <span id="activeFilterBadge" class="hidden bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-full text-[11px] font-bold"></span>
           </div>
 
-          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
-            <div class="p-5 border-b border-slate-100"><h3 class="text-base font-bold text-slate-900">Day-of-Week Surge Breakdown</h3></div>
-            <table class="w-full text-left border-collapse text-xs sm:text-sm">
-              <thead>
-                <tr class="bg-slate-50 text-slate-600 border-b border-slate-200">
-                  <th class="py-3 px-4 font-bold">Day of Week</th>
-                  <th class="py-3 px-4 font-bold text-right">Encounters</th>
-                  <th class="py-3 px-4 font-bold text-right">Share</th>
-                  <th class="py-3 px-4 font-bold text-right">Mean LOS</th>
-                  <th class="py-3 px-4 font-bold text-right">Median LOS</th>
-                </tr>
-              </thead>
-              <tbody id="tableDowBody" class="divide-y divide-slate-100"></tbody>
-            </table>
+          <div class="flex items-center gap-2">
+            <div class="inline-flex rounded-xl bg-slate-100 p-0.5 text-xs">
+              <button id="btnLosMedian" type="button" class="px-3 py-1 rounded-lg font-bold bg-white text-slate-900 shadow-sm transition-colors">Median LOS</button>
+              <button id="btnLosMean" type="button" class="px-3 py-1 rounded-lg font-bold text-slate-600 transition-colors">Mean LOS</button>
+            </div>
+            <button id="btnResetFilters" type="button" class="hidden inline-flex items-center gap-1 text-xs font-bold text-red-600 hover:bg-red-50 px-2.5 py-1.5 rounded-xl transition-colors">Reset Filters</button>
           </div>
         </div>
 
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-          <h3 class="text-base font-bold text-slate-900">Top 15 Highest-Turnover Beds</h3>
-          <p class="text-xs text-slate-500 mb-3">Individual bays ranked by total patient encounters handled.</p>
-          <div class="relative h-[430px] w-full"><canvas id="chartTopBeds"></canvas></div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
+          <select id="filterZone" class="text-xs border border-slate-300 rounded-xl px-3 py-2.5 bg-slate-50 focus:bg-white outline-none"><option value="ALL">All Clinical Zones</option></select>
+          <select id="filterShift" class="text-xs border border-slate-300 rounded-xl px-3 py-2.5 bg-slate-50 focus:bg-white outline-none">
+            <option value="ALL">All Roster Shifts</option>
+            <option value="Morning (08:00–14:59)">Morning (08:00–14:59)</option>
+            <option value="Evening (15:00–21:59)">Evening (15:00–21:59)</option>
+            <option value="Night (22:00–07:59)">Night (22:00–07:59)</option>
+          </select>
+          <select id="filterAge" class="text-xs border border-slate-300 rounded-xl px-3 py-2.5 bg-slate-50 focus:bg-white outline-none"><option value="ALL">All Age Groups</option></select>
+          <select id="filterVisit" class="text-xs border border-slate-300 rounded-xl px-3 py-2.5 bg-slate-50 focus:bg-white outline-none"><option value="ALL">All Visit Types</option></select>
+          <input id="filterSearch" type="text" placeholder="Search Encounter ID, Bed, Race, Extra..." class="text-xs border border-slate-300 rounded-xl px-3 py-2.5 bg-slate-50 focus:bg-white outline-none" />
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- TAB 3: DEMOGRAPHICS & REPEAT-VISITOR AUDIT -->
-    <section id="tab-demographics" class="tab-panel hidden space-y-6">
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-          <h3 id="ageChartTitle" class="text-base font-bold text-slate-900">Age Bracket Distribution</h3>
-          <p class="text-xs text-slate-500 mb-3">Click any age segment to filter the entire dashboard.</p>
-          <div class="relative h-72 w-full"><canvas id="chartAgeDonut"></canvas></div>
+      <!-- 6 Executive KPI Summary Cards -->
+      <section id="kpiGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5"></section>
+
+      <!-- Interactive View Navigation Tabs -->
+      <nav class="bg-white rounded-2xl border border-slate-200 p-1.5 flex flex-wrap gap-1.5 shadow-sm">
+        <button data-tab="overview" class="tab-btn flex-1 min-w-[160px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold bg-slate-900 text-white shadow-sm transition-all">Overview &amp; Surge Heatmap</button>
+        <button data-tab="zones" class="tab-btn flex-1 min-w-[160px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-slate-100 transition-all">Zones, Shifts &amp; Beds</button>
+        <button data-tab="demographics" class="tab-btn flex-1 min-w-[160px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-slate-100 transition-all">Demographics &amp; Extra Columns</button>
+        <button data-tab="data" id="tabBtnData" class="tab-btn flex-1 min-w-[160px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-slate-100 transition-all">PDPA-Cleaned Data</button>
+      </nav>
+
+      <!-- TAB 1: OVERVIEW, DAILY TREND & SURGE HEATMAP -->
+      <section id="tab-overview" class="tab-panel space-y-6">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <h3 class="text-base font-bold text-slate-900">Encounter Volume by Clinical Zone</h3>
+            <p class="text-xs text-slate-500 mb-3">Click any zone bar to slice the entire dashboard.</p>
+            <div class="relative h-72 w-full"><canvas id="chartZoneVolume"></canvas></div>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <h3 id="chartZoneLosTitle" class="text-base font-bold text-slate-900">Median Turnaround Time (Hours) by Zone</h3>
+            <p class="text-xs text-slate-500 mb-3">Turnaround duration comparison across triage zones.</p>
+            <div class="relative h-72 w-full"><canvas id="chartZoneLos"></canvas></div>
+          </div>
         </div>
 
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <h3 class="text-base font-bold text-slate-900">24-Hour Arrival Volume &amp; Turnaround Overlay</h3>
+            <p class="text-xs text-slate-500 mb-3">Hourly arrivals (bars) paired with turnaround duration (red line).</p>
+            <div class="relative h-72 w-full"><canvas id="chartHourlyCombo"></canvas></div>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <h3 id="dailyTrendTitle" class="text-base font-bold text-slate-900">Daily Encounter Volume Trend</h3>
+            <p id="dailyTrendSub" class="text-xs text-slate-500 mb-3">Date-by-date encounter volume across the uploaded period.</p>
+            <div class="relative h-72 w-full"><canvas id="chartDailyTrend"></canvas></div>
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+            <div>
+              <h3 class="text-base font-bold text-slate-900">Arrival Surge Heatmap (Day of Week &times; Hour of Day)</h3>
+              <p class="text-xs text-slate-500">Peak arrival hours across the 7-day week.</p>
+            </div>
+            <div class="flex items-center gap-1.5 text-[11px] text-slate-500">
+              <span>Low</span>
+              <span class="w-4 h-3 rounded bg-amber-100 border border-slate-200"></span>
+              <span class="w-4 h-3 rounded bg-amber-300"></span>
+              <span class="w-4 h-3 rounded bg-orange-500"></span>
+              <span class="w-4 h-3 rounded bg-red-600"></span>
+              <span id="heatmapPeakLabel">Peak</span>
+            </div>
+          </div>
+          <div id="heatmapContainer" class="min-w-[760px]"></div>
+        </div>
+      </section>
+
+      <!-- TAB 2: ZONES, SHIFTS & BED UTILIZATION -->
+      <section id="tab-zones" class="tab-panel hidden space-y-6">
         <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
-          <div class="p-5 border-b border-slate-100"><h3 class="text-base font-bold text-slate-900">Turnaround Time by Age Cohort</h3></div>
+          <div class="p-5 border-b border-slate-100">
+            <h3 class="text-base font-bold text-slate-900">Clinical Zone Performance Matrix</h3>
+            <p class="text-xs text-slate-500">Full turnaround distribution (Mean, Median, SD, IQR, Min–Max) and 4h / 6h / 12h breach rates.</p>
+          </div>
           <table class="w-full text-left border-collapse text-xs sm:text-sm">
             <thead>
               <tr class="bg-slate-50 text-slate-600 border-b border-slate-200">
-                <th class="py-3 px-4 font-bold">Age Bracket</th>
-                <th class="py-3 px-4 font-bold text-right">Visits</th>
+                <th class="py-3 px-4 font-bold">Clinical Zone</th>
+                <th class="py-3 px-4 font-bold text-right">Encounters</th>
                 <th class="py-3 px-4 font-bold text-right">Share</th>
                 <th class="py-3 px-4 font-bold text-right">Mean LOS</th>
                 <th class="py-3 px-4 font-bold text-right">Median LOS</th>
+                <th class="py-3 px-4 font-bold text-right">IQR (25–75%)</th>
+                <th class="py-3 px-4 font-bold text-right">&gt; 4 Hours</th>
+                <th class="py-3 px-4 font-bold text-right">&gt; 6 Hours</th>
               </tr>
             </thead>
-            <tbody id="tableAgeBody" class="divide-y divide-slate-100"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
-          <div class="p-5 border-b border-slate-100"><h3 class="text-base font-bold text-slate-900">Race / Citizenship Breakdown</h3></div>
-          <table class="w-full text-left border-collapse text-xs sm:text-sm">
-            <thead>
-              <tr class="bg-slate-50 text-slate-600 border-b border-slate-200">
-                <th class="py-3 px-4 font-bold">Race / Status</th>
-                <th class="py-3 px-4 font-bold text-right">Encounters</th>
-                <th class="py-3 px-4 font-bold text-right">Share</th>
-                <th class="py-3 px-4 font-bold text-right">Median LOS</th>
-              </tr>
-            </thead>
-            <tbody id="tableRaceBody" class="divide-y divide-slate-100"></tbody>
+            <tbody id="tableZoneBody" class="divide-y divide-slate-100"></tbody>
           </table>
         </div>
 
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-          <div>
-            <h3 class="text-base font-bold text-slate-900">Visit Classification &amp; Repeat-Visitor Audit (PDPA-Safe)</h3>
-            <p class="text-xs text-slate-500">Repeat-visitor counts computed in memory without exposing patient names.</p>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="space-y-6">
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
+              <div class="p-5 border-b border-slate-100"><h3 class="text-base font-bold text-slate-900">Operational Shift Performance</h3></div>
+              <table class="w-full text-left border-collapse text-xs sm:text-sm">
+                <thead>
+                  <tr class="bg-slate-50 text-slate-600 border-b border-slate-200">
+                    <th class="py-3 px-4 font-bold">Shift Window</th>
+                    <th class="py-3 px-4 font-bold text-right">Encounters</th>
+                    <th class="py-3 px-4 font-bold text-right">Share</th>
+                    <th class="py-3 px-4 font-bold text-right">Mean LOS</th>
+                    <th class="py-3 px-4 font-bold text-right">Median LOS</th>
+                  </tr>
+                </thead>
+                <tbody id="tableShiftBody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
+              <div class="p-5 border-b border-slate-100"><h3 class="text-base font-bold text-slate-900">Day-of-Week Surge Breakdown</h3></div>
+              <table class="w-full text-left border-collapse text-xs sm:text-sm">
+                <thead>
+                  <tr class="bg-slate-50 text-slate-600 border-b border-slate-200">
+                    <th class="py-3 px-4 font-bold">Day of Week</th>
+                    <th class="py-3 px-4 font-bold text-right">Encounters</th>
+                    <th class="py-3 px-4 font-bold text-right">Share</th>
+                    <th class="py-3 px-4 font-bold text-right">Mean LOS</th>
+                    <th class="py-3 px-4 font-bold text-right">Median LOS</th>
+                  </tr>
+                </thead>
+                <tbody id="tableDowBody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
           </div>
-          <div id="repeatVisitorCards" class="grid grid-cols-3 gap-3"></div>
-          <table class="w-full text-left border-collapse text-xs sm:text-sm">
-            <thead>
-              <tr class="bg-slate-50 text-slate-600 border-b border-slate-200">
-                <th class="py-2.5 px-3 font-bold">Visit Classification</th>
-                <th class="py-2.5 px-3 font-bold text-right">Encounters</th>
-                <th class="py-2.5 px-3 font-bold text-right">Share</th>
-                <th class="py-2.5 px-3 font-bold text-right">Median LOS</th>
-              </tr>
-            </thead>
-            <tbody id="tableVisitBody" class="divide-y divide-slate-100"></tbody>
+
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <h3 class="text-base font-bold text-slate-900">Top 15 Highest-Turnover Beds</h3>
+            <p class="text-xs text-slate-500 mb-3">Individual bays ranked by total patient encounters handled.</p>
+            <div class="relative h-[430px] w-full"><canvas id="chartTopBeds"></canvas></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: DEMOGRAPHICS, REPEAT AUDIT & ALL EXTRA COLUMNS -->
+      <section id="tab-demographics" class="tab-panel hidden space-y-6">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <h3 id="ageChartTitle" class="text-base font-bold text-slate-900">Age Bracket Distribution</h3>
+            <p class="text-xs text-slate-500 mb-3">Click any age segment to slice the entire dashboard.</p>
+            <div class="relative h-72 w-full"><canvas id="chartAgeDonut"></canvas></div>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
+            <div class="p-5 border-b border-slate-100"><h3 class="text-base font-bold text-slate-900">Turnaround Time by Age Cohort</h3></div>
+            <table class="w-full text-left border-collapse text-xs sm:text-sm">
+              <thead>
+                <tr class="bg-slate-50 text-slate-600 border-b border-slate-200">
+                  <th class="py-3 px-4 font-bold">Age Bracket</th>
+                  <th class="py-3 px-4 font-bold text-right">Visits</th>
+                  <th class="py-3 px-4 font-bold text-right">Share</th>
+                  <th class="py-3 px-4 font-bold text-right">Mean LOS</th>
+                  <th class="py-3 px-4 font-bold text-right">Median LOS</th>
+                </tr>
+              </thead>
+              <tbody id="tableAgeBody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
+            <div class="p-5 border-b border-slate-100"><h3 class="text-base font-bold text-slate-900">Race / Citizenship Breakdown</h3></div>
+            <table class="w-full text-left border-collapse text-xs sm:text-sm">
+              <thead>
+                <tr class="bg-slate-50 text-slate-600 border-b border-slate-200">
+                  <th class="py-3 px-4 font-bold">Race / Status</th>
+                  <th class="py-3 px-4 font-bold text-right">Encounters</th>
+                  <th class="py-3 px-4 font-bold text-right">Share</th>
+                  <th class="py-3 px-4 font-bold text-right">Median LOS</th>
+                </tr>
+              </thead>
+              <tbody id="tableRaceBody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <div>
+              <h3 class="text-base font-bold text-slate-900">Visit Classification &amp; Repeat-Visitor Audit (PDPA-Safe)</h3>
+              <p class="text-xs text-slate-500">Repeat-visitor counts computed in memory without exposing patient names.</p>
+            </div>
+            <div id="repeatVisitorCards" class="grid grid-cols-3 gap-3"></div>
+            <table class="w-full text-left border-collapse text-xs sm:text-sm">
+              <thead>
+                <tr class="bg-slate-50 text-slate-600 border-b border-slate-200">
+                  <th class="py-2.5 px-3 font-bold">Visit Classification</th>
+                  <th class="py-2.5 px-3 font-bold text-right">Encounters</th>
+                  <th class="py-2.5 px-3 font-bold text-right">Share</th>
+                  <th class="py-2.5 px-3 font-bold text-right">Median LOS</th>
+                </tr>
+              </thead>
+              <tbody id="tableVisitBody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Automatic Analysis of ALL Extra Categorical & Numeric Columns -->
+        <div id="dynamicExtraNumericContainer" class="hidden bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto"></div>
+        <div id="dynamicExtraAnalyticsContainer" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+      </section>
+
+      <!-- TAB 4: PDPA-CLEANED DATASET EXPLORER -->
+      <section id="tab-data" class="tab-panel hidden bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 id="cleanedTableTitle" class="text-base font-bold text-slate-900">Cleaned &amp; PDPA-Anonymized Dataset</h3>
+            <p class="text-xs text-slate-500">Direct identifiers (Patient Name) and 100%-blank columns removed; all active extra columns preserved.</p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button id="btnExportCsv" type="button" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-900 text-white transition-colors">Download CSV</button>
+            <button id="btnExportXlsx" type="button" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors">Download Excel (.xlsx)</button>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead id="cleanedTableHead"></thead>
+            <tbody id="cleanedTableBody" class="divide-y divide-slate-100"></tbody>
           </table>
         </div>
-      </div>
-
-      <!-- Dynamic Extra Columns Summary (Rendered automatically if custom columns exist) -->
-      <div id="dynamicExtraAnalyticsContainer" class="hidden grid grid-cols-1 md:grid-cols-3 gap-6"></div>
-    </section>
-
-    <!-- TAB 4: PDPA-CLEANED DATASET EXPLORER -->
-    <section id="tab-data" class="tab-panel hidden bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-      <div class="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h3 id="cleanedTableTitle" class="text-base font-bold text-slate-900">Cleaned &amp; PDPA-Anonymized Dataset</h3>
-          <p class="text-xs text-slate-500">Direct identifiers (Patient Name) and 100%-blank columns removed; active extra columns preserved.</p>
+        <div class="px-4 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-600">
+          <span id="paginationInfo">Showing 0–0 of 0</span>
+          <div class="flex items-center gap-2">
+            <button id="btnPrevPage" type="button" class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white disabled:opacity-40 font-bold">Previous</button>
+            <span id="pageNumberText" class="font-bold">Page 1 of 1</span>
+            <button id="btnNextPage" type="button" class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white disabled:opacity-40 font-bold">Next</button>
+          </div>
         </div>
-        <div class="flex flex-wrap gap-2">
-          <button id="btnExportCsv" type="button" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-900 text-white transition-colors">Download CSV</button>
-          <button id="btnExportXlsx" type="button" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors">Download Excel (.xlsx)</button>
-        </div>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse text-xs">
-          <thead id="cleanedTableHead"></thead>
-          <tbody id="cleanedTableBody" class="divide-y divide-slate-100"></tbody>
-        </table>
-      </div>
-      <div class="px-4 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-600">
-        <span id="paginationInfo">Showing 0–0 of 0</span>
-        <div class="flex items-center gap-2">
-          <button id="btnPrevPage" type="button" class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white disabled:opacity-40 font-bold">Previous</button>
-          <span id="pageNumberText" class="font-bold">Page 1 of 1</span>
-          <button id="btnNextPage" type="button" class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white disabled:opacity-40 font-bold">Next</button>
-        </div>
-      </div>
-    </section>
+      </section>
 
+    </div>
   </main>
 
   <script>
@@ -479,9 +553,11 @@
       const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
       const state = {
-        sourceName: 'Demo_ETD_Oct2026.xlsx',
+        isStaged: false,
+        isAnalyzed: false,
+        sourceName: '',
         workbookSheets: {},
-        activeSheet: 'Sheet1',
+        activeSheet: '',
         rawRecords: [],
         availableHeaders: [],
         columnMapping: {},
@@ -494,16 +570,15 @@
         activeTab: 'overview',
         tablePage: 1,
         pageSize: 20,
-        charts: { zoneVolume: null, zoneLos: null, hourlyCombo: null, topBeds: null, ageDonut: null },
-        googleSheets: { appsScriptUrl: DEFAULT_APPS_SCRIPT_URL, autoSync: true, connected: true, remoteSheets: [] },
+        charts: { zoneVolume: null, zoneLos: null, hourlyCombo: null, dailyTrend: null, topBeds: null, ageDonut: null },
+        googleSheets: { appsScriptUrl: DEFAULT_APPS_SCRIPT_URL, autoSync: true, autoPdf: true, remoteSheets: [] },
         lastPdfBlobUrl: null,
         lastPdfFilename: null
       };
 
-      // Yields to the browser render loop so UI & Charts paint completely before PDF export
       function nextPaintFrame() {
         return new Promise((resolve) => {
-          requestAnimationFrame(() => setTimeout(resolve, 120));
+          requestAnimationFrame(() => setTimeout(resolve, 110));
         });
       }
 
@@ -539,6 +614,23 @@
             return isNaN(d.getTime()) ? null : d;
           }
 
+          // ISO YYYY-MM-DD HH:mm:ss(.SSS)
+          const isoMatch = trimmed.match(
+            /^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})(?:[T\s]+(\d{1,2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?)?$/
+          );
+          if (isoMatch) {
+            const year = parseInt(isoMatch[1], 10);
+            const month = parseInt(isoMatch[2], 10);
+            const day = parseInt(isoMatch[3], 10);
+            const hour = isoMatch[4] ? parseInt(isoMatch[4], 10) : 0;
+            const minute = isoMatch[5] ? parseInt(isoMatch[5], 10) : 0;
+            const second = isoMatch[6] ? parseInt(isoMatch[6], 10) : 0;
+            const ms = isoMatch[7] ? parseInt(isoMatch[7].slice(0, 3).padEnd(3, '0'), 10) : 0;
+            const constructed = new Date(year, month - 1, day, hour, minute, second, ms);
+            if (!isNaN(constructed.getTime())) return constructed;
+          }
+
+          // Malaysian / International DD/MM/YYYY HH:mm:ss
           const dmyMatch = trimmed.match(
             /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})(?:[T\s]+(\d{1,2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?\s*(AM|PM)?)?$/i
           );
@@ -611,8 +703,14 @@
           : sorted[base];
       }
 
+      function calculateStdDev(arr, mean) {
+        if (!arr || arr.length < 2) return 0;
+        const variance = arr.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / (arr.length - 1);
+        return Math.sqrt(variance);
+      }
+
       // ======================================================================
-      // STEP 1: HEADER DETECTION & DYNAMIC SCHEMA EXTRACTION
+      // STEP 1: STAGE UPLOADED EXCEL WORKBOOK (NO AUTO-RUN UNTIL BUTTON PUSH)
       // ======================================================================
 
       function extractSheetTableAndMapping(sheet) {
@@ -696,18 +794,97 @@
         return { headers: uniqueHeaders, records, mapping };
       }
 
-      // ======================================================================
-      // STEP 2: NORMALIZE RECORDS & COMPUTE ALL STATISTICAL MATRICES
-      // ======================================================================
-
       function detectActiveExtraHeaders(headers, mapping, rawRows) {
         const mappedSet = new Set(Object.values(mapping).filter(Boolean));
         return headers.filter((h) => {
           if (mappedSet.has(h)) return false;
-          // Exclude columns that are 100% empty (e.g., blank Admit Decide By / Date)
           return rawRows.some((r) => r[h] !== null && r[h] !== undefined && String(r[h]).trim() !== '');
         });
       }
+
+      async function stageExcelFile(file) {
+        if (!file) return;
+        if (typeof XLSX === 'undefined') {
+          showStatusBanner('error', 'Spreadsheet Parser Still Loading', 'Please wait 2 seconds for SheetJS to finish loading and select your file again.');
+          return;
+        }
+
+        showStatusBanner('info', `Reading "${file.name}"...`, 'Staging worksheets and detecting columns. Analysis will start when you push "2. Start Full Analysis".', 30);
+        await nextPaintFrame();
+
+        try {
+          const buffer = await file.arrayBuffer();
+          const workbook = XLSX.read(new Uint8Array(buffer), { type: 'array', cellDates: false });
+          if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+            throw new Error('The uploaded workbook contains no sheets.');
+          }
+
+          const parsedSheets = {};
+          let bestSheet = workbook.SheetNames[0];
+          let maxRows = -1;
+
+          workbook.SheetNames.forEach((name) => {
+            const extracted = extractSheetTableAndMapping(workbook.Sheets[name]);
+            parsedSheets[name] = extracted;
+            if (extracted.records.length > maxRows) {
+              maxRows = extracted.records.length;
+              bestSheet = name;
+            }
+          });
+
+          const chosen = parsedSheets[bestSheet];
+          if (!chosen || chosen.records.length === 0) {
+            throw new Error('No tabular records were found in the uploaded Excel file.');
+          }
+
+          state.isStaged = true;
+          state.isAnalyzed = false;
+          state.workbookSheets = parsedSheets;
+          state.activeSheet = bestSheet;
+          state.sourceName = file.name;
+          state.rawRecords = chosen.records;
+          state.availableHeaders = chosen.headers;
+          state.columnMapping = chosen.mapping;
+          state.activeExtraHeaders = detectActiveExtraHeaders(chosen.headers, chosen.mapping, chosen.records);
+
+          updateStagedFileUi();
+          showStatusBanner(
+            'warning',
+            `File Staged: "${file.name}" (${chosen.records.length.toLocaleString()} Rows Ready)`,
+            'Verify the worksheet or Columns drawer if needed, then push "2. Start Full Analysis" to run all statistics, generate the PDF, and save to Google Sheets.'
+          );
+        } catch (err) {
+          console.error(err);
+          showStatusBanner('error', 'Excel Read Error', err.message || 'Unable to read the uploaded file.');
+        }
+      }
+
+      function updateStagedFileUi() {
+        const sheetNames = Object.keys(state.workbookSheets);
+        const sheetSel = document.getElementById('sheetSelector');
+        if (sheetNames.length > 1) {
+          sheetSel.classList.remove('hidden');
+          sheetSel.innerHTML = sheetNames
+            .map((s) => `<option value="${escapeHtml(s)}" ${s === state.activeSheet ? 'selected' : ''}>${escapeHtml(s)} (${state.workbookSheets[s].records.length})</option>`)
+            .join('');
+        } else {
+          sheetSel.classList.add('hidden');
+        }
+
+        document.getElementById('headerFileName').textContent = state.sourceName;
+        document.getElementById('stagedFileTitle').textContent = state.sourceName;
+        document.getElementById('stagedFileMeta').textContent = `${state.rawRecords.length.toLocaleString()} rows • ${state.availableHeaders.length} columns (${state.activeExtraHeaders.length} extra populated)`;
+
+        const startBtn = document.getElementById('btnStartAnalysis');
+        startBtn.disabled = false;
+        startBtn.classList.add('ready-pulse');
+
+        renderColumnMapper();
+      }
+
+      // ======================================================================
+      // STEP 2: FULL STATISTICAL ANALYSIS ENGINE (TRIGGERED BY ANALYSIS BUTTON)
+      // ======================================================================
 
       function normalizeEtdRecords(rawRows, mapping) {
         const records = [];
@@ -719,7 +896,8 @@
           const bedRaw = mapping.bedNo ? String(row[mapping.bedNo] || '').trim() : '';
           const encIdRaw = mapping.encounterId ? String(row[mapping.encounterId] || '').trim() : '';
 
-          if (!encDate && !bedRaw && !encIdRaw) return;
+          if (!encDate && !bedRaw && !encIdRaw && Object.values(row).every((v) => v === null || String(v).trim() === '')) return;
+
           const effectiveEncDate = encDate || disDate || new Date();
           const effectiveDisDate = disDate || effectiveEncDate;
 
@@ -807,8 +985,11 @@
           losList: []
         }));
 
-        const extraBreakdowns = {};
-        extraHeaders.slice(0, 3).forEach((h) => { extraBreakdowns[h] = {}; });
+        // Analyze ALL extra populated columns (both categorical & numeric)
+        const extraColData = {};
+        extraHeaders.forEach((h) => {
+          extraColData[h] = { catCounts: {}, numValues: [] };
+        });
 
         let totalLosHours = 0;
         let over4Count = 0;
@@ -855,9 +1036,14 @@
           if (!visitMap[rec.visitType]) visitMap[rec.visitType] = [];
           visitMap[rec.visitType].push(rec.losHours);
 
-          Object.keys(extraBreakdowns).forEach((h) => {
-            const val = String(rec._raw?.[h] ?? '').trim() || '(Blank)';
-            extraBreakdowns[h][val] = (extraBreakdowns[h][val] || 0) + 1;
+          extraHeaders.forEach((h) => {
+            const rawVal = rec._raw?.[h];
+            const strVal = rawVal !== null && rawVal !== undefined ? String(rawVal).trim() : '';
+            const label = strVal || '(Blank)';
+            extraColData[h].catCounts[label] = (extraColData[h].catCounts[label] || 0) + 1;
+            if (strVal !== '' && !isNaN(Number(strVal))) {
+              extraColData[h].numValues.push(Number(strVal));
+            }
           });
 
           totalLosHours += rec.losHours;
@@ -875,10 +1061,15 @@
         const threePlusPatients = uniqueArr.filter((c) => c >= 3).length;
         const maxPatientVisits = uniqueArr.reduce((m, c) => Math.max(m, c), 0);
 
-        const activeDays = Object.keys(dailyCounts).length || 1;
+        const sortedDates = Object.keys(dailyCounts).sort();
+        const activeDays = sortedDates.length || 1;
         const avgDailyVisits = (totalEncounters / activeDays).toFixed(1);
+        const dailySeries = sortedDates.map((d) => ({ date: d, count: dailyCounts[d] }));
+        const busiestDateObj = dailySeries.reduce((b, c) => (c.count > b.count ? c : b), dailySeries[0] || { date: 'N/A', count: 0 });
+        const quietestDateObj = dailySeries.reduce((b, c) => (c.count < b.count ? c : b), dailySeries[0] || { date: 'N/A', count: 0 });
 
         const avgLos = Number((totalLosHours / totalEncounters).toFixed(2));
+        const stdLos = Number(calculateStdDev(allLos, avgLos).toFixed(2));
         const medianLos = Number(calculateMedian(allLos).toFixed(2));
         const iqr25 = Number(calculateQuantile(allLos, 0.25).toFixed(2));
         const iqr75 = Number(calculateQuantile(allLos, 0.75).toFixed(2));
@@ -996,16 +1187,38 @@
           });
         });
 
-        const dynamicExtraTables = Object.keys(extraBreakdowns).map((colName) => {
-          const entries = Object.entries(extraBreakdowns[colName])
-            .map(([val, cnt]) => ({
-              value: val,
-              count: cnt,
-              sharePct: Number(((cnt / totalEncounters) * 100).toFixed(1))
-            }))
-            .sort((a, b) => b.count - a.count)
-            .slice(0, 10);
-          return { column: colName, rows: entries };
+        // Separate extra columns into Numeric Summaries and Categorical Frequency Tables
+        const dynamicNumericTables = [];
+        const dynamicCategoricalTables = [];
+        extraHeaders.forEach((colName) => {
+          const info = extraColData[colName];
+          const nonBlankTotal = records.length - (info.catCounts['(Blank)'] || 0);
+          if (nonBlankTotal > 0 && info.numValues.length / nonBlankTotal >= 0.85 && Object.keys(info.catCounts).length > 8) {
+            const mean = info.numValues.reduce((a, b) => a + b, 0) / info.numValues.length;
+            const sd = calculateStdDev(info.numValues, mean);
+            const med = calculateMedian(info.numValues);
+            const min = Math.min(...info.numValues);
+            const max = Math.max(...info.numValues);
+            dynamicNumericTables.push({
+              column: colName,
+              count: info.numValues.length,
+              mean: Number(mean.toFixed(2)),
+              median: Number(med.toFixed(2)),
+              sd: Number(sd.toFixed(2)),
+              min: Number(min.toFixed(2)),
+              max: Number(max.toFixed(2))
+            });
+          } else {
+            const rows = Object.entries(info.catCounts)
+              .map(([val, cnt]) => ({
+                value: val,
+                count: cnt,
+                sharePct: Number(((cnt / totalEncounters) * 100).toFixed(1))
+              }))
+              .sort((a, b) => b.count - a.count)
+              .slice(0, 12);
+            dynamicCategoricalTables.push({ column: colName, rows });
+          }
         });
 
         return {
@@ -1016,7 +1229,10 @@
             uniqueBedsCount: Object.keys(bedMap).length,
             activeDays,
             avgDailyVisits,
+            busiestDateLabel: `${busiestDateObj.date} (${busiestDateObj.count})`,
+            quietestDateLabel: `${quietestDateObj.date} (${quietestDateObj.count})`,
             avgLos,
+            stdLos,
             medianLos,
             iqr25,
             iqr75,
@@ -1043,6 +1259,7 @@
           charts: {
             zoneData,
             hourlySeries,
+            dailySeries,
             ageData,
             dowData,
             topBedsData: topBedsData.slice(0, 15),
@@ -1057,13 +1274,14 @@
             ageData,
             raceData,
             visitTypeData,
-            dynamicExtraTables
+            dynamicNumericTables,
+            dynamicCategoricalTables
           }
         };
       }
 
       // ======================================================================
-      // STEP 3: RENDER ALL DASHBOARD DATA, HEATMAPS & CHARTS FIRST
+      // STEP 3: RENDER ALL DASHBOARD DATA, HEATMAPS & CHARTS ON SCREEN FIRST
       // ======================================================================
 
       function showStatusBanner(type, title, message, progressPct = null, actions = []) {
@@ -1084,9 +1302,7 @@
         const actionsHtml = actions.length > 0
           ? `<div class="flex flex-wrap items-center gap-2 shrink-0">
                ${actions.map((act) =>
-                 act.href
-                   ? `<a href="${escapeHtml(act.href)}" target="_blank" rel="noopener noreferrer" download="${escapeHtml(act.download || '')}" class="inline-flex items-center gap-1 text-xs font-bold ${act.primary ? 'bg-slate-900 hover:bg-slate-800 text-white' : 'bg-white hover:bg-slate-100 text-slate-900 border border-slate-300'} px-3.5 py-2 rounded-xl transition-colors">${escapeHtml(act.label)}</a>`
-                   : `<button type="button" onclick="${escapeHtml(act.onClick)}" class="inline-flex items-center gap-1 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white px-3.5 py-2 rounded-xl transition-colors">${escapeHtml(act.label)}</button>`
+                 `<a href="${escapeHtml(act.href)}" target="_blank" rel="noopener noreferrer" download="${escapeHtml(act.download || '')}" class="inline-flex items-center gap-1 text-xs font-bold ${act.primary ? 'bg-slate-900 hover:bg-slate-800 text-white' : 'bg-white hover:bg-slate-100 text-slate-900 border border-slate-300'} px-3.5 py-2 rounded-xl transition-colors">${escapeHtml(act.label)}</a>`
                ).join('')}
              </div>`
           : '';
@@ -1118,7 +1334,7 @@
 
         const extraSummary = document.getElementById('extraColsSummary');
         if (state.activeExtraHeaders.length > 0) {
-          extraSummary.textContent = `Detected ${state.activeExtraHeaders.length} populated custom column(s) [${state.activeExtraHeaders.join(', ')}] — automatically preserved in tables & exports.`;
+          extraSummary.textContent = `Detected ${state.activeExtraHeaders.length} populated custom column(s) [${state.activeExtraHeaders.join(', ')}] — automatically analyzed & preserved in exports.`;
         } else {
           extraSummary.textContent = 'All populated columns mapped cleanly; 100%-empty columns excluded automatically.';
         }
@@ -1213,13 +1429,14 @@
 
         const { metrics, charts, tables } = stats;
         document.getElementById('headerPeriod').innerHTML = `Period: <strong class="text-slate-700">${escapeHtml(metrics.dateRangeText)}</strong>`;
+        document.getElementById('dailyTrendSub').textContent = `Busiest Date: ${metrics.busiestDateLabel} | Quietest Date: ${metrics.quietestDateLabel}`;
 
         // 1. Render 6 Executive KPI Cards
         const kpiCards = [
           { title: 'Encounters', value: metrics.totalEncounters.toLocaleString(), sub: `Avg <strong>${metrics.avgDailyVisits}</strong> / day (${metrics.activeDays}d)`, color: 'text-slate-900' },
           { title: 'Unique Patients', value: metrics.uniquePatientsCount.toLocaleString(), sub: `<strong>${(metrics.repeatStats.twoVisitPatients + metrics.repeatStats.threePlusPatients).toLocaleString()}</strong> repeat visitors`, color: 'text-slate-900' },
           { title: 'Median LOS', value: `${metrics.medianLos.toFixed(2)} hrs`, sub: `IQR: ${metrics.iqr25}–${metrics.iqr75} hrs`, color: 'text-emerald-700' },
-          { title: 'Mean LOS', value: `${metrics.avgLos.toFixed(2)} hrs`, sub: `Across ${metrics.uniqueBedsCount} active beds`, color: 'text-slate-900' },
+          { title: 'Mean LOS', value: `${metrics.avgLos.toFixed(2)} hrs`, sub: `SD: ${metrics.stdLos}h | ${metrics.uniqueBedsCount} beds`, color: 'text-slate-900' },
           { title: 'LOS > 4 Hours', value: `${metrics.pctOver4Hours}%`, sub: `${metrics.over4Count.toLocaleString()} cases (>6h: ${metrics.pctOver6Hours}%)`, color: 'text-red-600' },
           { title: 'Peak Surge', value: metrics.peakHourLabel, sub: `${metrics.peakHourCount} arrivals | Top: ${metrics.busiestDayLabel.slice(0, 3)}`, color: 'text-blue-700' }
         ];
@@ -1236,7 +1453,7 @@
           )
           .join('');
 
-        // 2. Render All 5 Chart.js Charts
+        // 2. Render All 6 Chart.js Charts
         renderAllCharts(charts, instantDraw);
 
         // 3. Render 7x24 Arrival Surge Heatmap
@@ -1347,21 +1564,58 @@
           )
           .join('');
 
-        // Render Dynamic Extra Columns Breakdown if present
+        // Render Dynamic Numeric Extra Columns Summary
+        const numContainer = document.getElementById('dynamicExtraNumericContainer');
+        if (tables.dynamicNumericTables && tables.dynamicNumericTables.length > 0) {
+          numContainer.classList.remove('hidden');
+          numContainer.innerHTML = `
+            <div class="p-5 border-b border-slate-100"><h3 class="text-base font-bold text-slate-900">Additional Numeric Columns Summary</h3></div>
+            <table class="w-full text-left border-collapse text-xs sm:text-sm">
+              <thead>
+                <tr class="bg-slate-50 text-slate-600 border-b border-slate-200">
+                  <th class="py-3 px-4 font-bold">Column Name</th>
+                  <th class="py-3 px-4 font-bold text-right">Valid Count</th>
+                  <th class="py-3 px-4 font-bold text-right">Mean</th>
+                  <th class="py-3 px-4 font-bold text-right">Median</th>
+                  <th class="py-3 px-4 font-bold text-right">Std Dev</th>
+                  <th class="py-3 px-4 font-bold text-right">Min</th>
+                  <th class="py-3 px-4 font-bold text-right">Max</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                ${tables.dynamicNumericTables.map((n) => `
+                  <tr class="hover:bg-slate-50">
+                    <td class="py-2.5 px-4 font-semibold text-slate-900">${escapeHtml(n.column)}</td>
+                    <td class="py-2.5 px-4 text-right">${n.count.toLocaleString()}</td>
+                    <td class="py-2.5 px-4 text-right">${n.mean}</td>
+                    <td class="py-2.5 px-4 text-right font-bold">${n.median}</td>
+                    <td class="py-2.5 px-4 text-right text-slate-500">${n.sd}</td>
+                    <td class="py-2.5 px-4 text-right">${n.min}</td>
+                    <td class="py-2.5 px-4 text-right">${n.max}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `;
+        } else {
+          numContainer.classList.add('hidden');
+        }
+
+        // Render Dynamic Categorical Extra Columns
         const extraContainer = document.getElementById('dynamicExtraAnalyticsContainer');
-        if (tables.dynamicExtraTables && tables.dynamicExtraTables.length > 0) {
+        if (tables.dynamicCategoricalTables && tables.dynamicCategoricalTables.length > 0) {
           extraContainer.classList.remove('hidden');
-          extraContainer.innerHTML = tables.dynamicExtraTables
+          extraContainer.innerHTML = tables.dynamicCategoricalTables
             .map(
               (tbl) => `
               <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
                 <div class="p-4 border-b border-slate-100">
-                  <h4 class="text-sm font-bold text-slate-900">Custom Column: ${escapeHtml(tbl.column)}</h4>
+                  <h4 class="text-sm font-bold text-slate-900">Extra Column: ${escapeHtml(tbl.column)}</h4>
                 </div>
                 <table class="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr class="bg-slate-50 text-slate-600 border-b border-slate-200">
-                      <th class="py-2 px-3 font-bold">Value</th>
+                      <th class="py-2 px-3 font-bold">Category</th>
                       <th class="py-2 px-3 font-bold text-right">Count</th>
                       <th class="py-2 px-3 font-bold text-right">Share</th>
                     </tr>
@@ -1491,7 +1745,34 @@
           });
         }
 
-        // 4. Top 15 Beds Horizontal Bar Chart
+        // 4. Daily Encounter Volume Trend Chart
+        const ctxDaily = document.getElementById('chartDailyTrend');
+        if (ctxDaily && charts.dailySeries) {
+          state.charts.dailyTrend = new Chart(ctxDaily, {
+            type: 'line',
+            data: {
+              labels: charts.dailySeries.map((d) => d.date.slice(5)),
+              datasets: [{
+                label: 'Daily Visits',
+                data: charts.dailySeries.map((d) => d.count),
+                borderColor: '#0f172a',
+                backgroundColor: 'rgba(15, 23, 42, 0.08)',
+                fill: true,
+                tension: 0.25,
+                pointRadius: 3
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              animation: animConfig,
+              plugins: { legend: { display: false } },
+              scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } }
+            }
+          });
+        }
+
+        // 5. Top 15 Beds Horizontal Bar Chart
         const ctxBeds = document.getElementById('chartTopBeds');
         if (ctxBeds && charts.topBedsData.length > 0) {
           state.charts.topBeds = new Chart(ctxBeds, {
@@ -1516,7 +1797,7 @@
           });
         }
 
-        // 5. Age Bracket Donut Chart
+        // 6. Age Bracket Donut Chart
         const ctxAge = document.getElementById('chartAgeDonut');
         if (ctxAge) {
           state.charts.ageDonut = new Chart(ctxAge, {
@@ -1631,7 +1912,7 @@
       }
 
       // ======================================================================
-      // STEP 4: GENERATE & DOWNLOAD MULTI-PAGE PDF WITH ALL DATA & CHARTS
+      // STEP 4: CREATE & DOWNLOAD FULL MULTI-PAGE PDF AFTER RENDERING
       // ======================================================================
 
       function safeCanvasImage(canvasId) {
@@ -1654,7 +1935,7 @@
         const pageHeight = doc.internal.pageSize.getHeight();
         const margin = 14;
         const contentWidth = pageWidth - margin * 2;
-        const { metrics, tables, charts, sourceName } = stats;
+        const { metrics, tables, sourceName } = stats;
 
         const renderTable = (startY, head, body, columnStyles = {}) => {
           if (typeof doc.autoTable === 'function') {
@@ -1674,7 +1955,7 @@
           return startY + 10;
         };
 
-        // --- PAGE 1: EXECUTIVE KPIS, CLINICAL ZONES & RENDERED CHARTS ---
+        // Page 1 Header
         doc.setFillColor(15, 23, 42);
         doc.rect(0, 0, pageWidth, 28, 'F');
         doc.setTextColor(255, 255, 255);
@@ -1727,19 +2008,18 @@
           { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' } }
         );
 
-        // Embed Rendered Zone Charts from Dashboard
         const imgZoneVol = safeCanvasImage('chartZoneVolume');
         const imgZoneLos = safeCanvasImage('chartZoneLos');
-        if (imgZoneVol && imgZoneLos && y + 58 < pageHeight - 15) {
-          y += 6;
+        if (imgZoneVol && imgZoneLos && y + 56 < pageHeight - 15) {
+          y += 5;
           const halfW = (contentWidth - 4) / 2;
-          doc.addImage(imgZoneVol, 'PNG', margin, y, halfW, 50);
-          doc.addImage(imgZoneLos, 'PNG', margin + halfW + 4, y, halfW, 50);
-          y += 55;
+          doc.addImage(imgZoneVol, 'PNG', margin, y, halfW, 48);
+          doc.addImage(imgZoneLos, 'PNG', margin + halfW + 4, y, halfW, 48);
+          y += 52;
         }
 
         if (y + 35 < pageHeight - 15) {
-          y += 5;
+          y += 4;
           doc.setFont('helvetica', 'bold');
           doc.setFontSize(10.5);
           doc.text('2. Operational Shift Performance', margin, y);
@@ -1751,7 +2031,7 @@
           );
         }
 
-        // --- PAGE 2: 24-HOUR PROFILE, DAY OF WEEK & DEMOGRAPHICS ---
+        // Page 2: Arrival Surges & Demographics
         doc.addPage();
         let y2 = 16;
         const imgHourly = safeCanvasImage('chartHourlyCombo');
@@ -1760,13 +2040,13 @@
           doc.setFontSize(10.5);
           doc.setTextColor(15, 23, 42);
           doc.text(`3. 24-Hour Arrival Profile (Peak: ${metrics.peakHourLabel} with ${metrics.peakHourCount} arrivals)`, margin, y2);
-          doc.addImage(imgHourly, 'PNG', margin, y2 + 3, contentWidth, 48);
-          y2 += 56;
+          doc.addImage(imgHourly, 'PNG', margin, y2 + 3, contentWidth, 46);
+          y2 += 54;
         }
 
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(10.5);
-        doc.text(`4. Day-of-Week Surge Breakdown (Busiest Day: ${metrics.busiestDayLabel})`, margin, y2);
+        doc.text(`4. Day-of-Week Surge Breakdown (Busiest: ${metrics.busiestDayLabel})`, margin, y2);
         y2 = renderTable(
           y2 + 3,
           ['Day of Week', 'Encounters', 'Share %', 'Mean LOS (hrs)', 'Median LOS (hrs)'],
@@ -1788,7 +2068,7 @@
         y2 += 7;
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(10.5);
-        doc.text('6. Race / Citizenship Breakdown & Repeat-Visitor Audit', margin, y2);
+        doc.text('6. Race / Citizenship Breakdown & Repeat-Visitor Summary', margin, y2);
         renderTable(
           y2 + 3,
           ['Race / Status', 'Encounters', 'Share %', 'Median LOS (hrs)'],
@@ -1796,7 +2076,7 @@
           { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' } }
         );
 
-        // --- PAGE 3: CLEANED PDPA DATASET SAMPLE ---
+        // Page 3: Cleaned PDPA Sample
         doc.addPage();
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(10.5);
@@ -1876,10 +2156,10 @@
         pushRow(['Total Encounters', metrics.totalEncounters, `${metrics.avgDailyVisits} avg visits/day across ${metrics.activeDays} active days`]);
         pushRow(['Unique Patients', metrics.uniquePatientsCount, `${metrics.repeatStats.twoVisitPatients + metrics.repeatStats.threePlusPatients} repeat visitors`]);
         pushRow(['Median Length of Stay (LOS)', `${metrics.medianLos} hrs`, `IQR: ${metrics.iqr25}–${metrics.iqr75} hrs`]);
-        pushRow(['Mean Length of Stay (LOS)', `${metrics.avgLos} hrs`, `Across ${metrics.uniqueBedsCount} active beds`]);
+        pushRow(['Mean Length of Stay (LOS)', `${metrics.avgLos} hrs`, `SD: ${metrics.stdLos}h | ${metrics.uniqueBedsCount} active beds`]);
         pushRow(['Encounters > 4 Hours', `${metrics.over4Count} (${metrics.pctOver4Hours}%)`, `>6 hrs: ${metrics.pctOver6Hours}% | >12 hrs: ${metrics.pctOver12Hours}%`]);
         pushRow(['Peak Arrival Hour', `${metrics.peakHourLabel} (${metrics.peakHourCount} visits)`, `Busiest Day: ${metrics.busiestDayLabel} (${metrics.busiestDayCount} visits)`]);
-        pushRow(['Patient Age Summary', `Median: ${metrics.medianAge} yrs`, `Mean: ${metrics.meanAge} yrs`]);
+        pushRow(['Busiest / Quietest Date', `Busiest: ${metrics.busiestDateLabel}`, `Quietest: ${metrics.quietestDateLabel}`]);
         pushRow([]);
 
         pushRow(['CLINICAL ZONE PERFORMANCE'], true);
@@ -1958,7 +2238,7 @@
         const payload = buildGoogleSheetPayload(stats, records);
         showStatusBanner(
           'info',
-          'Step 5 of 5: Saving Analysis to Google Sheets...',
+          'Saving Analysis to Google Sheets...',
           `Creating new sheet tab "${payload.sheetName}" inside spreadsheet ${TARGET_SPREADSHEET_ID}...`,
           95
         );
@@ -1981,8 +2261,8 @@
 
           showStatusBanner(
             'success',
-            `All Done! Analyzed ${records.length.toLocaleString()} Encounters, Downloaded PDF & Created Sheet "${data.sheetName}"`,
-            `Wrote ${data.rowsWritten.toLocaleString()} rows of KPI summaries, pivot tables, and PDPA-cleaned data into your Google Sheet.`,
+            `Analysis Complete (${records.length.toLocaleString()} Encounters) & Saved to New Sheet "${data.sheetName}"`,
+            `All dashboard tables and charts are populated below${pdfInfo ? `, PDF "${pdfInfo.filename}" was downloaded,` : ''} and ${data.rowsWritten.toLocaleString()} rows were written to Google Sheets.`,
             null,
             actions
           );
@@ -1992,8 +2272,8 @@
           const actions = pdfInfo ? [{ label: 'Open Downloaded PDF ↗', href: pdfInfo.blobUrl, primary: true }] : [];
           showStatusBanner(
             'warning',
-            'Analysis & PDF Complete (Google Sheet Sync Warning)',
-            `PDF "${pdfInfo?.filename || ''}" was created and downloaded, but Google Sheets returned: ${err.message}`,
+            'Analysis Complete (Google Sheet Sync Warning)',
+            `All data is analyzed below${pdfInfo ? ` and PDF "${pdfInfo.filename}" was downloaded` : ''}, but Google Sheets returned: ${err.message}`,
             null,
             actions
           );
@@ -2038,6 +2318,7 @@
           const extracted = extractSheetTableAndMapping(ws);
           if (!extracted.records.length) throw new Error(`No encounter records found inside "${sheetName}".`);
 
+          state.isStaged = true;
           state.workbookSheets = { [sheetName]: extracted };
           state.activeSheet = sheetName;
           state.sourceName = `GoogleSheet_${sheetName}`;
@@ -2045,131 +2326,85 @@
           state.availableHeaders = extracted.headers;
           state.columnMapping = extracted.mapping;
           state.activeExtraHeaders = detectActiveExtraHeaders(extracted.headers, extracted.mapping, extracted.records);
-          resetAllFilters();
+          updateStagedFileUi();
 
-          document.getElementById('headerFileName').textContent = state.sourceName;
-          renderColumnMapper();
-          state.allCleanedRecords = normalizeEtdRecords(state.rawRecords, state.columnMapping);
-          populateFilterDropdowns();
-          applyFiltersAndRender(true);
-
-          showStatusBanner('success', `Loaded "${sheetName}" from Google Sheets`, `Reconstructed dashboard for ${state.allCleanedRecords.length.toLocaleString()} records.`);
+          await executeFullAnalysisWorkflow(false, false);
+          showStatusBanner('success', `Loaded & Analyzed "${sheetName}" from Google Sheets`, `Reconstructed all tables and charts for ${state.allCleanedRecords.length.toLocaleString()} records.`);
         } catch (err) {
           showStatusBanner('error', 'Failed to Load Remote Sheet', err.message);
         }
       }
 
       // ======================================================================
-      // MASTER UPLOAD WORKFLOW: ANALYZE FIRST -> RENDER ALL -> CREATE PDF -> SYNC
+      // TRIGGERED WHEN USER PUSHES THE "2. START FULL ANALYSIS" BUTTON
       // ======================================================================
 
-      async function handleFileUpload(file) {
-        if (!file) return;
-        if (typeof XLSX === 'undefined') {
-          showStatusBanner('error', 'Parser Still Loading', 'Please wait 2 seconds for SheetJS to finish loading and try again.');
+      async function executeFullAnalysisWorkflow(runPdfExport = true, runGoogleSheetSync = true) {
+        if (!state.isStaged || !state.rawRecords.length) {
+          showStatusBanner('warning', 'No Excel File Staged', 'Please upload an Excel form in Step 1 before pushing "2. Start Full Analysis".');
           return;
         }
 
-        // STEP 1: Read Excel Workbook & Detect Schema
-        showStatusBanner('info', `Step 1 of 5: Reading "${file.name}"...`, 'Scanning worksheets, detecting headers, and mapping columns...', 15);
-        await nextPaintFrame();
+        const startBtn = document.getElementById('btnStartAnalysis');
+        startBtn.disabled = true;
+        startBtn.classList.remove('ready-pulse');
 
         try {
-          const buffer = await file.arrayBuffer();
-          const workbook = XLSX.read(new Uint8Array(buffer), { type: 'array', cellDates: true });
-          if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
-            throw new Error('The uploaded workbook contains no sheets.');
-          }
-
-          const parsedSheets = {};
-          let bestSheet = workbook.SheetNames[0];
-          let maxRows = -1;
-
-          workbook.SheetNames.forEach((name) => {
-            const extracted = extractSheetTableAndMapping(workbook.Sheets[name]);
-            parsedSheets[name] = extracted;
-            if (extracted.records.length > maxRows) {
-              maxRows = extracted.records.length;
-              bestSheet = name;
-            }
-          });
-
-          const chosen = parsedSheets[bestSheet];
-          if (!chosen || chosen.records.length === 0) {
-            throw new Error('No valid tabular patient records were found in the uploaded file.');
-          }
-
-          state.workbookSheets = parsedSheets;
-          state.activeSheet = bestSheet;
-          state.sourceName = file.name;
-          state.rawRecords = chosen.records;
-          state.availableHeaders = chosen.headers;
-          state.columnMapping = chosen.mapping;
-          state.activeExtraHeaders = detectActiveExtraHeaders(chosen.headers, chosen.mapping, chosen.records);
-          resetAllFilters();
-
-          // Update sheet dropdown if multiple sheets exist
-          const sheetSel = document.getElementById('sheetSelector');
-          if (workbook.SheetNames.length > 1) {
-            sheetSel.classList.remove('hidden');
-            sheetSel.innerHTML = workbook.SheetNames
-              .map((s) => `<option value="${escapeHtml(s)}" ${s === bestSheet ? 'selected' : ''}>Sheet: ${escapeHtml(s)} (${parsedSheets[s].records.length})</option>`)
-              .join('');
-          } else {
-            sheetSel.classList.add('hidden');
-          }
-
-          // STEP 2: Normalize Timestamps & Compute Statistical Matrices
-          showStatusBanner('info', `Step 2 of 5: Computing Statistics for ${chosen.records.length.toLocaleString()} Rows...`, 'Calculating turnaround times (LOS), clinical zones, shifts, demographics, and PDPA anonymization...', 45);
+          // Phase 1: Normalize Timestamps & Compute All Statistical Matrices
+          showStatusBanner('info', `Analyzing ${state.rawRecords.length.toLocaleString()} Rows...`, 'Computing turnaround times (LOS), clinical zones, shifts, daily trends, demographics, and custom columns...', 35);
           await nextPaintFrame();
 
-          document.getElementById('headerFileName').textContent = file.name;
-          renderColumnMapper();
           state.allCleanedRecords = normalizeEtdRecords(state.rawRecords, state.columnMapping);
-
           if (state.allCleanedRecords.length === 0) {
             document.getElementById('columnMapperPanel').classList.remove('hidden');
-            throw new Error('Rows were found, but Encounter Date / Bed No. columns could not be matched automatically. Please verify the Columns drawer above.');
+            throw new Error('Could not parse records with current column mapping. Please verify the Columns & Extras drawer above and click Save Mapping & Re-Analyze.');
           }
 
-          // STEP 3: Render ALL Dashboard Data, Tables, Heatmap & Charts FIRST
-          showStatusBanner('info', 'Step 3 of 5: Rendering All Tables, Heatmaps & Charts on Screen...', 'Populating dashboard metrics before generating the PDF report...', 70);
-          await nextPaintFrame();
-
+          resetAllFilters();
           populateFilterDropdowns();
-          applyFiltersAndRender(true); // instantDraw = true draws all Chart.js canvases immediately without animation delay
-          await nextPaintFrame(); // Wait for browser to visibly paint all dashboard data & charts first!
 
-          // STEP 4: Generate & Download Multi-Page PDF Report
-          showStatusBanner('info', 'Step 4 of 5: Creating & Downloading Multi-Page PDF Report...', 'Embedding rendered charts, pivot tables, and PDPA-cleaned records into PDF...', 85);
+          // Reveal workspace & render ALL tables, heatmaps, and charts FIRST
+          document.getElementById('preAnalysisPlaceholder').classList.add('hidden');
+          document.getElementById('analysisWorkspace').classList.remove('hidden');
+          document.getElementById('btnManualPdf').disabled = false;
+
+          showStatusBanner('info', 'Rendering All Statistical Tables, Heatmaps & Charts...', 'Populating complete dashboard data before creating PDF and Google Sheet...', 70);
           await nextPaintFrame();
 
-          const pdfInfo = generateAndDownloadPdf(state.stats, state.allCleanedRecords);
+          applyFiltersAndRender(true);
+          state.isAnalyzed = true;
+          await nextPaintFrame(); // Ensure browser paints all charts & tables on screen first!
 
-          // STEP 5: Push Full Analysis to a New Google Sheet Tab
-          if (state.googleSheets.autoSync && state.googleSheets.appsScriptUrl.trim()) {
+          // Phase 2: Create & Download PDF Report (if checked)
+          let pdfInfo = null;
+          if (runPdfExport && state.googleSheets.autoPdf) {
+            showStatusBanner('info', 'Creating & Downloading Multi-Page PDF Report...', 'Embedding rendered charts, pivot tables, and PDPA-cleaned dataset...', 85);
+            await nextPaintFrame();
+            pdfInfo = generateAndDownloadPdf(state.stats, state.allCleanedRecords);
+          }
+
+          // Phase 3: Push Complete Analysis to New Google Sheet Tab (if checked)
+          if (runGoogleSheetSync && state.googleSheets.autoSync && state.googleSheets.appsScriptUrl.trim()) {
             await pushAnalysisToGoogleSheet(state.stats, state.allCleanedRecords, pdfInfo);
           } else {
             const actions = pdfInfo ? [{ label: 'Open / Re-Download PDF ↗', href: pdfInfo.blobUrl, primary: true }] : [];
             showStatusBanner(
               'success',
-              `Analysis Complete (${state.allCleanedRecords.length.toLocaleString()} Encounters) & PDF Downloaded!`,
-              `All dashboard tables and charts are populated above, and "${pdfInfo?.filename || 'ETD_Report.pdf'}" has been generated.`,
+              `Full Analysis Complete (${state.allCleanedRecords.length.toLocaleString()} Encounters)!`,
+              `All dashboard tables and charts are populated below${pdfInfo ? ` and PDF "${pdfInfo.filename}" has been downloaded` : ''}.`,
               null,
               actions
             );
           }
         } catch (err) {
           console.error(err);
-          showStatusBanner('error', 'Excel Auto-Analysis Error', err.message || 'Unable to process the uploaded Excel file.');
+          showStatusBanner('error', 'Analysis Error', err.message || 'An error occurred while analyzing the Excel data.');
+        } finally {
+          startBtn.disabled = false;
         }
       }
 
-      // ======================================================================
-      // DEMO DATA & INITIALIZATION
-      // ======================================================================
-
-      function generateDemoData() {
+      function stageDemoFile() {
         const rows = [];
         const zones = [
           { prefix: 'ETD-GZ1', weight: 54, avgLos: 2.9 },
@@ -2217,8 +2452,8 @@
             'Patient Name': `DEMO PATIENT ${(i % 2003) + 1}`,
             'Age': age,
             'Race': races[i % races.length],
-            'Encounter Date': encDate,
-            'Discharge Date': disDate,
+            'Encounter Date': formatDateTime(encDate),
+            'Discharge Date': formatDateTime(disDate),
             'No. of Visit': i % 10 === 0 ? 'FOLLOW UP' : '1ST TIME'
           });
         }
@@ -2235,6 +2470,7 @@
           visitType: 'No. of Visit'
         };
 
+        state.isStaged = true;
         state.workbookSheets = { Sheet1: { headers, records: rows, mapping } };
         state.activeSheet = 'Sheet1';
         state.sourceName = 'Demo_ETD_Oct2026.xlsx';
@@ -2242,23 +2478,27 @@
         state.availableHeaders = headers;
         state.columnMapping = mapping;
         state.activeExtraHeaders = [];
-        resetAllFilters();
 
-        document.getElementById('headerFileName').textContent = state.sourceName;
-        renderColumnMapper();
-        state.allCleanedRecords = normalizeEtdRecords(rows, mapping);
-        populateFilterDropdowns();
-        applyFiltersAndRender(true);
+        updateStagedFileUi();
+        showStatusBanner(
+          'warning',
+          'Demo Excel File Staged (2,248 Rows)',
+          'Push the blue "2. Start Full Analysis" button above to execute all statistical analyses, generate the PDF, and sync to Google Sheets.'
+        );
       }
+
+      // ======================================================================
+      // EVENT LISTENERS
+      // ======================================================================
 
       document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('appsScriptUrlInput').value = DEFAULT_APPS_SCRIPT_URL;
         refreshRemoteSheetList();
 
-        // File upload & drag-drop
+        // Step 1: Upload / Drop Excel File -> Stages file only
         document.getElementById('excelFileInput').addEventListener('change', (e) => {
           const f = e.target.files?.[0];
-          if (f) handleFileUpload(f);
+          if (f) stageExcelFile(f);
           e.target.value = '';
         });
 
@@ -2273,10 +2513,10 @@
           e.preventDefault();
           document.getElementById('dragOverlay').classList.add('hidden');
           const f = e.dataTransfer?.files?.[0];
-          if (f) handleFileUpload(f);
+          if (f) stageExcelFile(f);
         });
 
-        // Sheet switcher
+        // Worksheet switcher when workbook has multiple sheets
         document.getElementById('sheetSelector').addEventListener('change', (e) => {
           const sh = state.workbookSheets[e.target.value];
           if (!sh) return;
@@ -2285,11 +2525,21 @@
           state.availableHeaders = sh.headers;
           state.columnMapping = sh.mapping;
           state.activeExtraHeaders = detectActiveExtraHeaders(sh.headers, sh.mapping, sh.records);
-          resetAllFilters();
-          renderColumnMapper();
-          state.allCleanedRecords = normalizeEtdRecords(sh.records, sh.mapping);
-          populateFilterDropdowns();
-          applyFiltersAndRender(true);
+          updateStagedFileUi();
+          showStatusBanner('warning', `Switched to Worksheet "${state.activeSheet}" (${sh.records.length.toLocaleString()} rows)`, 'Push "2. Start Full Analysis" to analyze this worksheet.');
+        });
+
+        // Step 2: Explicit Start Analysis Button
+        document.getElementById('btnStartAnalysis').addEventListener('click', () => {
+          executeFullAnalysisWorkflow(true, true);
+        });
+
+        // Output option checkboxes
+        document.getElementById('autoPdfCheckbox').addEventListener('change', (e) => {
+          state.googleSheets.autoPdf = e.target.checked;
+        });
+        document.getElementById('autoSyncCheckbox').addEventListener('change', (e) => {
+          state.googleSheets.autoSync = e.target.checked;
         });
 
         // Toolbar toggles
@@ -2299,10 +2549,8 @@
         document.getElementById('btnToggleMapper').addEventListener('click', () => {
           document.getElementById('columnMapperPanel').classList.toggle('hidden');
         });
-        document.getElementById('btnLoadDemo').addEventListener('click', () => {
-          generateDemoData();
-          showStatusBanner('info', 'Demo Dataset Loaded', 'Upload your Excel file to run the full auto-analysis, generate & download the PDF report, and save a new Google Sheet tab.');
-        });
+        document.getElementById('btnLoadDemo').addEventListener('click', stageDemoFile);
+
         document.getElementById('btnManualPdf').addEventListener('click', () => {
           if (!state.stats) return;
           const pdf = generateAndDownloadPdf(state.stats, state.filteredRecords);
@@ -2313,25 +2561,20 @@
           }
         });
 
-        // Apply manual column mapping
+        // Apply manual column mapping & run analysis
         document.getElementById('btnApplyMapping').addEventListener('click', () => {
           document.querySelectorAll('.map-select').forEach((sel) => {
             state.columnMapping[sel.getAttribute('data-map-key')] = sel.value;
           });
           state.activeExtraHeaders = detectActiveExtraHeaders(state.availableHeaders, state.columnMapping, state.rawRecords);
-          state.allCleanedRecords = normalizeEtdRecords(state.rawRecords, state.columnMapping);
-          populateFilterDropdowns();
-          applyFiltersAndRender(true);
-          showStatusBanner('success', 'Column Mapping Applied', 'Recalculated all metrics & tables using your updated column mapping.');
+          updateStagedFileUi();
+          executeFullAnalysisWorkflow(false, false);
         });
 
-        // Google Sheets actions
+        // Google Sheets manual controls
         document.getElementById('btnConnectAppsScript').addEventListener('click', () => {
           state.googleSheets.appsScriptUrl = document.getElementById('appsScriptUrlInput').value.trim();
           refreshRemoteSheetList();
-        });
-        document.getElementById('autoSyncCheckbox').addEventListener('change', (e) => {
-          state.googleSheets.autoSync = e.target.checked;
         });
         document.getElementById('btnSyncNow').addEventListener('click', () => {
           state.googleSheets.appsScriptUrl = document.getElementById('appsScriptUrlInput').value.trim();
@@ -2342,7 +2585,7 @@
           if (tab) loadRemoteSheetIntoDashboard(tab);
         });
 
-        // Filters & Metric toggle
+        // Dynamic Slice Filters & Metric toggle
         document.getElementById('filterZone').addEventListener('change', (e) => { state.filters.zone = e.target.value; state.tablePage = 1; applyFiltersAndRender(false); });
         document.getElementById('filterShift').addEventListener('change', (e) => { state.filters.shift = e.target.value; state.tablePage = 1; applyFiltersAndRender(false); });
         document.getElementById('filterAge').addEventListener('change', (e) => { state.filters.ageGroup = e.target.value; state.tablePage = 1; applyFiltersAndRender(false); });
@@ -2367,7 +2610,7 @@
           renderAllDashboardVisuals(false);
         });
 
-        // Tabs (with Chart.js resize on hidden tabs)
+        // Navigation Tabs
         document.querySelectorAll('.tab-btn').forEach((btn) => {
           btn.addEventListener('click', () => {
             const target = btn.getAttribute('data-tab');
@@ -2423,9 +2666,6 @@
           XLSX.utils.book_append_sheet(wb, wsSummary, payload.sheetName.slice(0, 31));
           XLSX.writeFile(wb, `ETD_Analysis_${state.sourceName.replace(/\.[^/.]+$/, '')}.xlsx`);
         });
-
-        // Initialize with Demo Data so all charts & tables are immediately ready
-        generateDemoData();
       });
     })();
   </script>
