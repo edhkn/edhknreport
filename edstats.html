@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ETD Statistical Analysis &amp; Google Sheets Engine (edstats.html)</title>
+  <title>ETD Statistical Analysis Engine (edstats.html)</title>
 
   <!-- Google Fonts: Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -61,7 +61,7 @@
       </div>
       <h3 class="text-xl font-bold text-slate-900">Drop Excel Form to Stage File</h3>
       <p class="text-sm text-slate-500 mt-1.5">
-        Your file will be staged—then push <strong>2. Start Full Analysis</strong> to compute all data, download PDF, and save to Google Sheets.
+        Your file will be staged—then push <strong>2. Start Full Analysis</strong> to compute all data and download your complete PDF report.
       </p>
     </div>
   </div>
@@ -78,7 +78,7 @@
           </div>
           <div>
             <h1 class="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight">
-              ETD Statistical Analysis &amp; Google Sheets Engine
+              ETD Statistical Analysis Dashboard
             </h1>
           </div>
         </div>
@@ -98,11 +98,6 @@
 
       <!-- Secondary Toolbar Actions -->
       <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto">
-        <button id="btnToggleSheetsPanel" type="button" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold border transition-colors bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300">
-          <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-          Google Sheet Backend
-        </button>
-
         <button id="btnToggleMapper" type="button" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 transition-colors">
           Columns &amp; Extras
         </button>
@@ -150,20 +145,16 @@
           </div>
         </div>
 
-        <!-- Optional Sheet Selector & Output Toggles -->
+        <!-- Optional Sheet Selector & PDF Output Toggle -->
         <div class="lg:col-span-4 flex flex-col gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5">
           <div class="flex items-center justify-between gap-2">
-            <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Worksheet &amp; Outputs</span>
+            <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Worksheet &amp; Report Option</span>
             <select id="sheetSelector" class="hidden bg-white text-blue-800 border border-blue-300 rounded-lg px-2 py-0.5 font-bold text-xs outline-none"></select>
           </div>
           <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-semibold text-slate-700">
             <label class="inline-flex items-center gap-1.5 cursor-pointer">
               <input id="autoPdfCheckbox" type="checkbox" checked class="rounded text-blue-600" />
-              Auto-Create PDF
-            </label>
-            <label class="inline-flex items-center gap-1.5 cursor-pointer">
-              <input id="autoSyncCheckbox" type="checkbox" checked class="rounded text-emerald-600" />
-              Auto-New Google Sheet Tab
+              Auto-Create &amp; Download Full PDF Report
             </label>
           </div>
         </div>
@@ -183,64 +174,6 @@
 
     <!-- Step-by-Step Pipeline Status & Download Banner -->
     <div id="statusBannerContainer" class="space-y-3"></div>
-
-    <!-- Collapsible Google Sheets Backend Panel -->
-    <section id="googleSheetsPanel" class="hidden bg-white border border-emerald-200 rounded-2xl p-5 shadow-sm space-y-4">
-      <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-3.5">
-        <div>
-          <div class="flex items-center gap-2">
-            <h2 class="text-base font-bold text-slate-900">Google Sheets Backend (New Sheet Tab Per Analysis)</h2>
-            <span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-              Bound to Spreadsheet
-            </span>
-          </div>
-          <p class="text-xs text-slate-500 mt-0.5">
-            Target Spreadsheet:
-            <a href="https://docs.google.com/spreadsheets/d/1fBVDhsmO7DAZht69Ra45zbM71Fx-Obf80WkI8CvsgIc/edit?gid=0#gid=0" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline font-mono font-semibold">
-              1fBVDhsmO7DAZht69Ra45zbM71Fx-Obf80WkI8CvsgIc
-            </a>
-          </p>
-        </div>
-
-        <div class="flex flex-wrap items-center gap-2">
-          <a href="https://docs.google.com/spreadsheets/d/1fBVDhsmO7DAZht69Ra45zbM71Fx-Obf80WkI8CvsgIc/edit?gid=0#gid=0" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 transition-colors">
-            Open Google Sheet ↗
-          </a>
-          <button id="btnSyncNow" type="button" class="inline-flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition-colors shadow-sm">
-            Push Current Analysis to New Tab
-          </button>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2.5">
-          <label for="appsScriptUrlInput" class="block text-xs font-bold text-slate-700">
-            Google Apps Script Web App URL
-          </label>
-          <div class="flex flex-col sm:flex-row gap-2">
-            <input id="appsScriptUrlInput" type="url" class="flex-1 text-xs border border-slate-300 rounded-xl px-3 py-2 bg-white focus:border-blue-500 outline-none" />
-            <button id="btnConnectAppsScript" type="button" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors shrink-0">
-              Refresh Tabs
-            </button>
-          </div>
-        </div>
-
-        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col justify-between space-y-2.5">
-          <div>
-            <div class="text-xs font-bold text-slate-700">Load Past Analysis Sheet from Google Sheets</div>
-            <div id="remoteSheetsHint" class="text-[11px] text-slate-500">Checking existing tabs in your Google Sheet...</div>
-          </div>
-          <div class="flex items-center gap-2">
-            <select id="remoteSheetSelect" class="flex-1 text-xs border border-slate-300 rounded-xl px-2.5 py-2 bg-white outline-none">
-              <option value="">-- Loading tabs --</option>
-            </select>
-            <button id="btnLoadRemoteSheet" type="button" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-900 text-white transition-colors shrink-0">
-              Load Tab
-            </button>
-          </div>
-        </div>
-      </div>
-    </section>
 
     <!-- Collapsible Smart Column Mapping & Extra Columns Drawer -->
     <section id="columnMapperPanel" class="hidden bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
@@ -267,7 +200,7 @@
       </div>
       <h2 class="text-lg font-extrabold text-slate-900">Upload Your Excel Form &amp; Push "2. Start Full Analysis"</h2>
       <p class="text-xs sm:text-sm text-slate-500 max-w-xl mx-auto">
-        Once you upload an Excel spreadsheet and click <strong>2. Start Full Analysis</strong>, this dashboard will compute Mean LOS, Median LOS, IQR (25–75%), &gt;4h / &gt;6h breach rates, clinical zones, 24-hour &amp; weekly surge heatmaps, daily trends, bed turnover, demographics, repeat-visitor audits, and any custom columns—then automatically generate your PDF report and create a new sheet tab in Google Sheets.
+        Once you upload an Excel spreadsheet and click <strong>2. Start Full Analysis</strong>, this dashboard will compute Mean LOS, Median LOS, IQR (25–75%), &gt;4h / &gt;6h breach rates, clinical zones, 24-hour &amp; weekly surge heatmaps, daily trends, bed turnover, demographics, repeat-visitor audits, and any custom columns—then automatically generate and download a multi-page PDF containing all charts and statistical tables.
       </p>
     </section>
 
@@ -535,10 +468,8 @@
     (function () {
       'use strict';
 
-      // Bound Google Spreadsheet & Apps Script Web App Endpoint
-      const TARGET_SPREADSHEET_ID = '1fBVDhsmO7DAZht69Ra45zbM71Fx-Obf80WkI8CvsgIc';
-      const TARGET_SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/1fBVDhsmO7DAZht69Ra45zbM71Fx-Obf80WkI8CvsgIc/edit?gid=0#gid=0';
-      const DEFAULT_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxlmRf5DRaHHN_NEBCuU7TnLQQ8m6QGzjLmEZSQgUmMr_NKdFswo9Eixundj5a52lS_/exec';
+      // Silent Background Backend Endpoint
+      const BACKGROUND_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbxlmRf5DRaHHN_NEBCuU7TnLQQ8m6QGzjLmEZSQgUmMr_NKdFswo9Eixundj5a52lS_/exec';
 
       const ZONE_COLORS = {
         'Green Zone (GZ)': '#10b981',
@@ -577,7 +508,7 @@
         tablePage: 1,
         pageSize: 20,
         charts: { zoneVolume: null, zoneLos: null, hourlyCombo: null, dailyTrend: null, topBeds: null, ageDonut: null },
-        googleSheets: { appsScriptUrl: DEFAULT_APPS_SCRIPT_URL, autoSync: true, autoPdf: true, remoteSheets: [] },
+        autoPdf: true,
         lastPdfBlobUrl: null,
         lastPdfFilename: null
       };
@@ -603,7 +534,7 @@
       }
 
       // ======================================================================
-      // CRITICAL FIX FOR HIS EXCEL FILES WITH TRUNCATED <dimension ref="A1:A...">
+      // FULL WORKSHEET RANGE RECONSTRUCTION (HANDLES TRUNCATED <dimension>)
       // ======================================================================
 
       function recomputeFullSheetRange(ws) {
@@ -634,14 +565,13 @@
       }
 
       // ======================================================================
-      // BULLETPROOF MULTI-FORMAT DATE, TIME & DURATION PARSER
+      // MULTI-FORMAT DATE, TIME & DURATION PARSER
       // ======================================================================
 
       function parseFlexibleDate(val) {
         if (val === null || val === undefined || val === '') return null;
         if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
 
-        // 1. Numeric Excel Serial Timestamp (with fractional seconds p.u)
         if (typeof val === 'number' && isFinite(val) && val > 1000) {
           if (typeof XLSX !== 'undefined' && XLSX.SSF && typeof XLSX.SSF.parse_date_code === 'function') {
             const p = XLSX.SSF.parse_date_code(val);
@@ -663,7 +593,6 @@
             return parseFlexibleDate(parseFloat(trimmed));
           }
 
-          // 2. ISO YYYY-MM-DD[T ]HH:mm[:ss[.SSS]][Z]
           const isoMatch = trimmed.match(
             /^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})(?:[T\s]+(\d{1,2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?\s*(AM|PM|Z)?)?$/i
           );
@@ -682,7 +611,6 @@
             if (!isNaN(constructed.getTime())) return constructed;
           }
 
-          // 3. DD/MM/YYYY or DD-MM-YYYY or DD.MM.YYYY [HH:mm[:ss[.SSS]] [AM/PM]]
           const dmyMatch = trimmed.match(
             /^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})(?:[T\s]+(\d{1,2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?\s*(AM|PM)?)?$/i
           );
@@ -706,7 +634,6 @@
             if (!isNaN(constructed.getTime())) return constructed;
           }
 
-          // 4. Named Month: "31-Oct-2026 23:41:55"
           const namedMonthMatch = trimmed.match(
             /^(\d{1,2})[\s\-\/]([A-Za-z]{3,9})[\s\-\/](\d{2,4})(?:[T\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?)?$/i
           );
@@ -728,7 +655,6 @@
             }
           }
 
-          // 5. Native Date fallback
           const native = new Date(trimmed);
           if (!isNaN(native.getTime()) && native.getFullYear() >= 1990) return native;
         }
@@ -841,11 +767,10 @@
       }
 
       // ======================================================================
-      // STEP 1: SELF-HEALING HEADER & DATA-DRIVEN COLUMN DETECTION
+      // STEP 1: STAGE UPLOADED EXCEL WORKBOOK
       // ======================================================================
 
       function extractSheetTableAndMapping(sheet) {
-        // Expand !ref across all populated cell keys so truncated <dimension ref="A1:A..."> never drops columns B..Z
         recomputeFullSheetRange(sheet);
 
         const matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: null });
@@ -985,7 +910,7 @@
           return;
         }
 
-        showStatusBanner('info', `Reading "${file.name}"...`, 'Scanning full worksheet cell ranges, detecting headers, and mapping columns...', 30);
+        showStatusBanner('info', `Reading "${file.name}"...`, 'Scanning worksheets and mapping columns. Push "2. Start Full Analysis" once staged.', 30);
         await nextPaintFrame();
 
         try {
@@ -1026,8 +951,8 @@
           updateStagedFileUi();
           showStatusBanner(
             'warning',
-            `File Staged: "${file.name}" (${chosen.records.length.toLocaleString()} Rows × ${chosen.headers.length} Columns Ready)`,
-            `Arrival: "${chosen.mapping.encounterDate || 'Not Found'}" | Discharge: "${chosen.mapping.dischargeDate || 'Not Found'}" | Age: "${chosen.mapping.age || 'Not Found'}" | Race: "${chosen.mapping.race || 'Not Found'}". Push "2. Start Full Analysis" to run all calculations.`
+            `File Staged: "${file.name}" (${chosen.records.length.toLocaleString()} Rows Ready)`,
+            'Push "2. Start Full Analysis" above to calculate all statistics, render all charts & tables, and download your complete PDF report.'
           );
         } catch (err) {
           console.error(err);
@@ -2132,16 +2057,137 @@
       }
 
       // ======================================================================
-      // STEP 4: CREATE & DOWNLOAD FULL MULTI-PAGE PDF AFTER RENDERING
+      // STEP 4: OFF-SCREEN HIGH-RES RENDERING OF ALL GRAPHS & HEATMAP FOR PDF
       // ======================================================================
 
-      function safeCanvasImage(canvasId) {
+      function renderOffscreenChartPng(config, width = 920, height = 440) {
+        if (typeof Chart === 'undefined') return null;
         try {
-          const canvas = document.getElementById(canvasId);
-          if (!canvas || canvas.width === 0 || canvas.height === 0) return null;
-          const url = canvas.toDataURL('image/png', 1.0);
-          return url && url.startsWith('data:image/png') && url.length > 1000 ? url : null;
-        } catch {
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+
+          // Plugin to paint solid white background
+          const whiteBgPlugin = {
+            id: 'whiteBg',
+            beforeDraw: (chart) => {
+              const c = chart.ctx;
+              c.save();
+              c.fillStyle = '#ffffff';
+              c.fillRect(0, 0, chart.width, chart.height);
+              c.restore();
+            }
+          };
+
+          const chart = new Chart(ctx, {
+            ...config,
+            options: {
+              ...config.options,
+              responsive: false,
+              animation: false,
+              devicePixelRatio: 2
+            },
+            plugins: [...(config.plugins || []), whiteBgPlugin]
+          });
+          chart.draw();
+          const dataUrl = canvas.toDataURL('image/png', 1.0);
+          chart.destroy();
+          return dataUrl;
+        } catch (err) {
+          console.error('Offscreen chart render failed:', err);
+          return null;
+        }
+      }
+
+      function renderOffscreenHeatmapPng(matrix, maxVal) {
+        try {
+          const width = 1240;
+          const height = 410;
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, width, height);
+
+          const leftMargin = 115;
+          const topMargin = 46;
+          const rightPad = 20;
+          const bottomPad = 18;
+          const gridW = width - leftMargin - rightPad;
+          const gridH = height - topMargin - bottomPad;
+          const colW = gridW / 24;
+          const rowH = gridH / 7;
+
+          // Header Title & Peak Legend
+          ctx.fillStyle = '#0f172a';
+          ctx.font = 'bold 18px Inter, Arial, sans-serif';
+          ctx.textAlign = 'left';
+          ctx.fillText('Arrival Surge Heatmap (Day of Week × Hour of Day)', 12, 22);
+
+          ctx.font = '600 13px Inter, Arial, sans-serif';
+          ctx.fillStyle = '#475569';
+          ctx.textAlign = 'right';
+          ctx.fillText(`Peak Cell: ${maxVal} encounters`, width - rightPad, 22);
+
+          // Hour column headers (00 to 23)
+          ctx.font = 'bold 12px Inter, Arial, sans-serif';
+          ctx.fillStyle = '#475569';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          for (let h = 0; h < 24; h++) {
+            const cx = leftMargin + h * colW + colW / 2;
+            ctx.fillText(String(h).padStart(2, '0'), cx, topMargin - 10);
+          }
+
+          // Rows (Monday..Sunday) & Colored Cells
+          DAYS_OF_WEEK.forEach((day, rIdx) => {
+            const y = topMargin + rIdx * rowH;
+            ctx.fillStyle = '#1e293b';
+            ctx.font = 'bold 14px Inter, Arial, sans-serif';
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(day, leftMargin - 12, y + rowH / 2);
+
+            const rowVals = matrix[day] || Array(24).fill(0);
+            rowVals.forEach((val, h) => {
+              const x = leftMargin + h * colW;
+              const intensity = val / (maxVal || 1);
+              let bg = '#f8fafc';
+              let fg = '#94a3b8';
+              if (val > 0 && intensity < 0.25) {
+                bg = '#fef3c7';
+                fg = '#78350f';
+              } else if (intensity >= 0.25 && intensity < 0.5) {
+                bg = '#fcd34d';
+                fg = '#451a03';
+              } else if (intensity >= 0.5 && intensity < 0.75) {
+                bg = '#f97316';
+                fg = '#ffffff';
+              } else if (intensity >= 0.75) {
+                bg = '#dc2626';
+                fg = '#ffffff';
+              }
+
+              ctx.fillStyle = bg;
+              ctx.fillRect(x + 2, y + 2, colW - 4, rowH - 4);
+              ctx.strokeStyle = '#e2e8f0';
+              ctx.lineWidth = 1;
+              ctx.strokeRect(x + 2, y + 2, colW - 4, rowH - 4);
+
+              ctx.fillStyle = fg;
+              ctx.font = intensity >= 0.5 ? 'bold 13px Inter, Arial, sans-serif' : '600 12px Inter, Arial, sans-serif';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(String(val), x + colW / 2, y + rowH / 2);
+            });
+          });
+
+          return canvas.toDataURL('image/png', 1.0);
+        } catch (err) {
+          console.error('Offscreen heatmap render failed:', err);
           return null;
         }
       }
@@ -2153,9 +2199,10 @@
         const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
-        const margin = 14;
+        const margin = 13;
         const contentWidth = pageWidth - margin * 2;
-        const { metrics, tables, sourceName } = stats;
+        const { metrics, charts, tables, sourceName } = stats;
+        const isMedian = state.losMetricMode === 'median';
 
         const renderTable = (startY, head, body, columnStyles = {}) => {
           if (typeof doc.autoTable === 'function') {
@@ -2165,7 +2212,7 @@
               body,
               margin: { left: margin, right: margin },
               theme: 'grid',
-              styles: { fontSize: 7.8, cellPadding: 2.1, textColor: [30, 41, 59], lineColor: [203, 213, 225], lineWidth: 0.2 },
+              styles: { fontSize: 7.6, cellPadding: 1.9, textColor: [30, 41, 59], lineColor: [203, 213, 225], lineWidth: 0.2 },
               headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold' },
               alternateRowStyles: { fillColor: [248, 250, 252] },
               columnStyles
@@ -2175,25 +2222,110 @@
           return startY + 10;
         };
 
-        // Page 1 Header
+        // Generate crisp off-screen PNGs for ALL 6 charts + 7x24 Heatmap
+        const imgZoneVol = renderOffscreenChartPng({
+          type: 'bar',
+          data: {
+            labels: charts.zoneData.map((z) => z.shortZone),
+            datasets: [{ label: 'Encounters', data: charts.zoneData.map((z) => z.encounters), backgroundColor: charts.zoneData.map((z) => z.color), borderRadius: 6 }]
+          },
+          options: {
+            plugins: { legend: { display: false }, title: { display: true, text: 'Encounter Volume by Clinical Zone', font: { size: 16, weight: 'bold' }, color: '#0f172a' } },
+            scales: { y: { beginAtZero: true }, x: { grid: { display: false } } }
+          }
+        }, 880, 440);
+
+        const imgZoneLos = renderOffscreenChartPng({
+          type: 'bar',
+          data: {
+            labels: charts.zoneData.map((z) => z.shortZone),
+            datasets: [{ label: isMedian ? 'Median LOS (hrs)' : 'Mean LOS (hrs)', data: charts.zoneData.map((z) => (isMedian ? z.medianLos : z.meanLos)), backgroundColor: charts.zoneData.map((z) => z.color), borderRadius: 6 }]
+          },
+          options: {
+            plugins: { legend: { display: false }, title: { display: true, text: `${isMedian ? 'Median' : 'Mean'} Turnaround Time (Hours) by Zone`, font: { size: 16, weight: 'bold' }, color: '#0f172a' } },
+            scales: { y: { beginAtZero: true }, x: { grid: { display: false } } }
+          }
+        }, 880, 440);
+
+        const imgHourly = renderOffscreenChartPng({
+          data: {
+            labels: charts.hourlySeries.map((h) => h.label),
+            datasets: [
+              { type: 'bar', label: 'Patient Arrivals', data: charts.hourlySeries.map((h) => h.count), backgroundColor: 'rgba(59, 130, 246, 0.85)', borderRadius: 4, yAxisID: 'y' },
+              { type: 'line', label: isMedian ? 'Median LOS (hrs)' : 'Mean LOS (hrs)', data: charts.hourlySeries.map((h) => (isMedian ? h.medianLos : h.meanLos)), borderColor: '#dc2626', backgroundColor: '#dc2626', borderWidth: 3, tension: 0.3, pointRadius: 3, yAxisID: 'y1' }
+            ]
+          },
+          options: {
+            plugins: { title: { display: true, text: '24-Hour Arrival Volume & Turnaround Overlay', font: { size: 16, weight: 'bold' }, color: '#0f172a' } },
+            scales: {
+              y: { type: 'linear', position: 'left', beginAtZero: true, title: { display: true, text: 'Arrivals' } },
+              y1: { type: 'linear', position: 'right', beginAtZero: true, grid: { drawOnChartArea: false }, title: { display: true, text: 'LOS (Hours)' } }
+            }
+          }
+        }, 920, 440);
+
+        const imgDaily = renderOffscreenChartPng({
+          type: 'line',
+          data: {
+            labels: (charts.dailySeries || []).map((d) => d.date.slice(5)),
+            datasets: [{ label: 'Daily Visits', data: (charts.dailySeries || []).map((d) => d.count), borderColor: '#0f172a', backgroundColor: 'rgba(15, 23, 42, 0.1)', fill: true, tension: 0.25, pointRadius: 3 }]
+          },
+          options: {
+            plugins: { legend: { display: false }, title: { display: true, text: 'Daily Encounter Volume Trend', font: { size: 16, weight: 'bold' }, color: '#0f172a' } },
+            scales: { y: { beginAtZero: true }, x: { grid: { display: false } } }
+          }
+        }, 920, 440);
+
+        const imgHeatmap = renderOffscreenHeatmapPng(charts.heatmapMatrix, charts.maxHeatmapCell);
+
+        const imgAgeDonut = renderOffscreenChartPng({
+          type: 'doughnut',
+          data: {
+            labels: charts.ageData.map((a) => `${a.name} (${a.sharePct}%)`),
+            datasets: [{ data: charts.ageData.map((a) => a.value), backgroundColor: charts.ageData.map((a) => a.color), borderWidth: 2, borderColor: '#ffffff' }]
+          },
+          options: {
+            cutout: '55%',
+            plugins: {
+              legend: { position: 'right', labels: { font: { size: 12 } } },
+              title: { display: true, text: `Age Bracket Distribution (Median: ${metrics.medianAge} yrs)`, font: { size: 15, weight: 'bold' }, color: '#0f172a' }
+            }
+          }
+        }, 880, 460);
+
+        const imgTopBeds = renderOffscreenChartPng({
+          type: 'bar',
+          data: {
+            labels: charts.topBedsData.map((b) => b.bed),
+            datasets: [{ label: 'Encounters', data: charts.topBedsData.map((b) => b.encounters), backgroundColor: '#0ea5e9', borderRadius: 4 }]
+          },
+          options: {
+            indexAxis: 'y',
+            plugins: { legend: { display: false }, title: { display: true, text: 'Top 15 Highest-Turnover Beds', font: { size: 15, weight: 'bold' }, color: '#0f172a' } },
+            scales: { x: { beginAtZero: true } }
+          }
+        }, 880, 460);
+
+        // ====================================================================
+        // PAGE 1: EXECUTIVE KPIS, CLINICAL ZONE MATRIX & ZONE CHARTS
+        // ====================================================================
         doc.setFillColor(15, 23, 42);
-        doc.rect(0, 0, pageWidth, 28, 'F');
+        doc.rect(0, 0, pageWidth, 25, 'F');
         doc.setTextColor(255, 255, 255);
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(14);
-        doc.text('Emergency & Trauma Department (ETD) Statistical Report', margin, 11.5);
+        doc.setFontSize(13.5);
+        doc.text('Emergency & Trauma Department (ETD) Statistical Report', margin, 10.5);
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8.5);
+        doc.setFontSize(8.2);
         doc.setTextColor(203, 213, 225);
-        doc.text(`Source: ${sourceName}   |   Period: ${metrics.dateRangeText}   |   Generated: ${formatDateTime(new Date())}`, margin, 19);
-        doc.text(`Google Sheet Backend ID: ${TARGET_SPREADSHEET_ID}   |   PDPA-Anonymized Report`, margin, 24.5);
+        doc.text(`Source: ${sourceName}   |   Period: ${metrics.dateRangeText}   |   Generated: ${formatDateTime(new Date())}   |   PDPA-Anonymized`, margin, 18.5);
 
-        let y = 34;
+        let y = 30;
         const kpis = [
-          { label: 'TOTAL ENCOUNTERS', val: metrics.totalEncounters.toLocaleString(), sub: `${metrics.uniquePatientsCount.toLocaleString()} unique patients` },
+          { label: 'TOTAL ENCOUNTERS', val: metrics.totalEncounters.toLocaleString(), sub: `${metrics.uniquePatientsCount.toLocaleString()} unique (${metrics.avgDailyVisits}/day)` },
           { label: 'MEDIAN LOS (IQR)', val: `${metrics.medianLos.toFixed(2)} hrs`, sub: `IQR (25–75%): ${metrics.iqr25}–${metrics.iqr75} hrs` },
-          { label: 'MEAN LOS & VOLUME', val: `${metrics.avgLos.toFixed(2)} hrs`, sub: `${metrics.avgDailyVisits} visits/day (${metrics.uniqueBedsCount} beds)` },
-          { label: 'EXCEEDING 4 & 6 HRS', val: `>4h: ${metrics.pctOver4Hours}%`, sub: `>6h: ${metrics.pctOver6Hours}% | >12h: ${metrics.pctOver12Hours}%` }
+          { label: 'MEAN LOS & BEDS', val: `${metrics.avgLos.toFixed(2)} hrs`, sub: `SD: ${metrics.stdLos}h | ${metrics.uniqueBedsCount} active beds` },
+          { label: 'BREACH RATES', val: `>4h: ${metrics.pctOver4Hours}%`, sub: `>6h: ${metrics.pctOver6Hours}% | >12h: ${metrics.pctOver12Hours}%` }
         ];
         const gap = 3;
         const cardW = (contentWidth - gap * 3) / 4;
@@ -2201,28 +2333,28 @@
           const x = margin + i * (cardW + gap);
           doc.setFillColor(248, 250, 252);
           doc.setDrawColor(203, 213, 225);
-          doc.roundedRect(x, y, cardW, 19, 2, 2, 'FD');
+          doc.roundedRect(x, y, cardW, 18, 2, 2, 'FD');
           doc.setFont('helvetica', 'bold');
-          doc.setFontSize(6.8);
+          doc.setFontSize(6.6);
           doc.setTextColor(100, 116, 139);
-          doc.text(k.label, x + 2.8, y + 5.2);
-          doc.setFontSize(11);
+          doc.text(k.label, x + 2.5, y + 5);
+          doc.setFontSize(10.8);
           doc.setTextColor(15, 23, 42);
-          doc.text(k.val, x + 2.8, y + 12);
+          doc.text(k.val, x + 2.5, y + 11.2);
           doc.setFont('helvetica', 'normal');
-          doc.setFontSize(6.8);
+          doc.setFontSize(6.6);
           doc.setTextColor(71, 85, 105);
-          doc.text(k.sub, x + 2.8, y + 16.8);
+          doc.text(k.sub, x + 2.5, y + 15.8);
         });
 
-        y += 25;
+        y += 24;
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(10.5);
         doc.setTextColor(15, 23, 42);
-        doc.text('1. Turnaround Time (LOS) & Volume by Clinical Zone', margin, y);
+        doc.text('1. Clinical Zone Performance Matrix', margin, y);
 
         y = renderTable(
-          y + 3,
+          y + 2.5,
           ['Clinical Zone', 'Encounters', 'Share %', 'Mean LOS', 'Median LOS', 'IQR (25–75%)', '> 4 Hours', '> 6 Hours'],
           tables.zoneData.map((z) => [
             z.zone,
@@ -2237,83 +2369,177 @@
           { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' }, 7: { halign: 'right' } }
         );
 
-        const imgZoneVol = safeCanvasImage('chartZoneVolume');
-        const imgZoneLos = safeCanvasImage('chartZoneLos');
-        if (imgZoneVol && imgZoneLos && y + 56 < pageHeight - 15) {
-          y += 5;
+        // Charts 1 & 2: Encounter Volume by Clinical Zone + Median Turnaround Time (Hours) by Zone
+        if (imgZoneVol && imgZoneLos) {
+          y += 6;
           const halfW = (contentWidth - 4) / 2;
-          doc.addImage(imgZoneVol, 'PNG', margin, y, halfW, 48);
-          doc.addImage(imgZoneLos, 'PNG', margin + halfW + 4, y, halfW, 48);
-          y += 52;
+          const chartH = 50;
+          doc.addImage(imgZoneVol, 'PNG', margin, y, halfW, chartH);
+          doc.addImage(imgZoneLos, 'PNG', margin + halfW + 4, y, halfW, chartH);
+          y += chartH + 4;
         }
 
-        if (y + 35 < pageHeight - 15) {
-          y += 4;
+        // Operational Shift Performance Table on Page 1 if room permits
+        if (y + 38 < pageHeight - 12) {
+          y += 3;
           doc.setFont('helvetica', 'bold');
           doc.setFontSize(10.5);
           doc.text('2. Operational Shift Performance', margin, y);
           renderTable(
-            y + 3,
+            y + 2.5,
             ['Shift Window', 'Encounters', 'Share %', 'Mean LOS (hrs)', 'Median LOS (hrs)'],
             tables.shiftData.map((s) => [s.shift, s.encounters.toLocaleString(), `${s.sharePct}%`, s.meanLos.toFixed(2), s.medianLos.toFixed(2)]),
             { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' } }
           );
         }
 
-        // Page 2: Arrival Surges & Demographics
+        // ====================================================================
+        // PAGE 2: 24-HOUR OVERLAY, DAILY TREND, 7x24 HEATMAP & DAY-OF-WEEK
+        // ====================================================================
         doc.addPage();
-        let y2 = 16;
-        const imgHourly = safeCanvasImage('chartHourlyCombo');
-        if (imgHourly) {
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(10.5);
-          doc.setTextColor(15, 23, 42);
-          doc.text(`3. 24-Hour Arrival Profile (Peak: ${metrics.peakHourLabel} with ${metrics.peakHourCount} arrivals)`, margin, y2);
-          doc.addImage(imgHourly, 'PNG', margin, y2 + 3, contentWidth, 46);
-          y2 += 54;
-        }
-
+        let y2 = 14;
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(10.5);
-        doc.text(`4. Day-of-Week Surge Breakdown (Busiest: ${metrics.busiestDayLabel})`, margin, y2);
-        y2 = renderTable(
-          y2 + 3,
+        doc.setTextColor(15, 23, 42);
+        doc.text(`3. Temporal Arrival & Daily Volume Trends (Peak Hour: ${metrics.peakHourLabel} | Busiest Date: ${metrics.busiestDateLabel})`, margin, y2);
+        y2 += 3;
+
+        if (imgHourly && imgDaily) {
+          const halfW = (contentWidth - 4) / 2;
+          const chartH = 48;
+          doc.addImage(imgHourly, 'PNG', margin, y2, halfW, chartH);
+          doc.addImage(imgDaily, 'PNG', margin + halfW + 4, y2, halfW, chartH);
+          y2 += chartH + 5;
+        }
+
+        // Full-Width 7x24 Arrival Surge Heatmap
+        if (imgHeatmap) {
+          const hmH = 60;
+          doc.addImage(imgHeatmap, 'PNG', margin, y2, contentWidth, hmH);
+          y2 += hmH + 6;
+        }
+
+        // Day-of-Week Surge Breakdown Table
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10.5);
+        doc.setTextColor(15, 23, 42);
+        doc.text(`4. Day-of-Week Surge Breakdown (Busiest Day: ${metrics.busiestDayLabel} with ${metrics.busiestDayCount} visits)`, margin, y2);
+        renderTable(
+          y2 + 2.5,
           ['Day of Week', 'Encounters', 'Share %', 'Mean LOS (hrs)', 'Median LOS (hrs)'],
           tables.dowData.map((d) => [d.day, d.encounters.toLocaleString(), `${d.sharePct}%`, d.meanLos.toFixed(2), d.medianLos.toFixed(2)]),
           { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' } }
         );
 
-        y2 += 7;
+        // ====================================================================
+        // PAGE 3: AGE DISTRIBUTION, DEMOGRAPHICS, REPEAT AUDIT & TOP BEDS
+        // ====================================================================
+        doc.addPage();
+        let y3 = 14;
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(10.5);
-        doc.text(`5. Age Bracket Demographics (Median Age: ${metrics.medianAge} yrs | Mean Age: ${metrics.meanAge} yrs)`, margin, y2);
-        y2 = renderTable(
-          y2 + 3,
-          ['Age Bracket', 'Encounters', 'Share %', 'Mean LOS (hrs)', 'Median LOS (hrs)'],
-          tables.ageData.map((a) => [a.name, a.value.toLocaleString(), `${a.sharePct}%`, a.meanLos.toFixed(2), a.medianLos.toFixed(2)]),
-          { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' } }
-        );
+        doc.setTextColor(15, 23, 42);
+        doc.text(`5. Age Bracket Distribution & Turnaround Time by Age Cohort (Median Age: ${metrics.medianAge} yrs | Mean: ${metrics.meanAge} yrs)`, margin, y3);
+        y3 += 3;
 
-        y2 += 7;
+        // Side-by-side: Age Bracket Donut Chart + Turnaround Time by Age Cohort Table
+        if (imgAgeDonut) {
+          const leftW = 84;
+          const chartH = 46;
+          doc.addImage(imgAgeDonut, 'PNG', margin, y3, leftW, chartH);
+          if (typeof doc.autoTable === 'function') {
+            doc.autoTable({
+              startY: y3,
+              head: [['Age Bracket', 'Visits', 'Share', 'Mean', 'Median']],
+              body: tables.ageData.map((a) => [a.name, a.value.toLocaleString(), `${a.sharePct}%`, `${a.meanLos.toFixed(2)}h`, `${a.medianLos.toFixed(2)}h`]),
+              margin: { left: margin + leftW + 3, right: margin },
+              theme: 'grid',
+              styles: { fontSize: 7.4, cellPadding: 1.8, textColor: [30, 41, 59], lineColor: [203, 213, 225], lineWidth: 0.2 },
+              headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold' },
+              alternateRowStyles: { fillColor: [248, 250, 252] },
+              columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' } }
+            });
+          }
+          y3 = Math.max(y3 + chartH, doc.lastAutoTable ? doc.lastAutoTable.finalY : y3 + chartH) + 6;
+        }
+
+        // Section 6: Race / Citizenship Breakdown
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(10.5);
-        doc.text('6. Race / Citizenship Breakdown & Repeat-Visitor Summary', margin, y2);
-        renderTable(
-          y2 + 3,
+        doc.setTextColor(15, 23, 42);
+        doc.text('6. Race / Citizenship Breakdown', margin, y3);
+        y3 = renderTable(
+          y3 + 2.5,
           ['Race / Status', 'Encounters', 'Share %', 'Median LOS (hrs)'],
           tables.raceData.map((r) => [r.race, r.encounters.toLocaleString(), `${r.sharePct}%`, r.medianLos.toFixed(2)]),
           { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' } }
         );
 
-        // Page 3: Cleaned PDPA Sample
-        doc.addPage();
+        // Section 7: Visit Classification & Repeat-Visitor Audit (PDPA-Safe)
+        y3 += 6;
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(10.5);
-        doc.text(`7. Cleaned & PDPA-Anonymized Dataset Excerpt (First 35 of ${records.length.toLocaleString()} Records)`, margin, 16);
+        doc.text(
+          `7. Visit Classification & Repeat-Visitor Audit (1 Visit: ${metrics.repeatStats.singleVisitPatients.toLocaleString()} | 2 Visits: ${metrics.repeatStats.twoVisitPatients.toLocaleString()} | 3+ Visits: ${metrics.repeatStats.threePlusPatients.toLocaleString()}, Max ${metrics.repeatStats.maxPatientVisits})`,
+          margin,
+          y3
+        );
+        y3 = renderTable(
+          y3 + 2.5,
+          ['Visit Classification', 'Encounters', 'Share %', 'Median LOS (hrs)'],
+          tables.visitTypeData.map((v) => [v.type, v.encounters.toLocaleString(), `${v.sharePct}%`, v.medianLos.toFixed(2)]),
+          { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' } }
+        );
+
+        // Top 15 Highest-Turnover Beds Chart
+        if (imgTopBeds && y3 + 52 < pageHeight - 12) {
+          y3 += 5;
+          doc.addImage(imgTopBeds, 'PNG', margin, y3, contentWidth, 48);
+        }
+
+        // ====================================================================
+        // PAGE 4: EXTRA COLUMNS (IF ANY) & CLEANED PDPA DATASET EXCERPT
+        // ====================================================================
+        doc.addPage();
+        let y4 = 14;
+
+        if (tables.dynamicNumericTables && tables.dynamicNumericTables.length > 0) {
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(10.5);
+          doc.setTextColor(15, 23, 42);
+          doc.text('8. Custom Numeric Columns Statistical Summary', margin, y4);
+          y4 = renderTable(
+            y4 + 2.5,
+            ['Column Name', 'Valid Count', 'Mean', 'Median', 'Std Dev', 'Min', 'Max'],
+            tables.dynamicNumericTables.map((n) => [n.column, n.count.toLocaleString(), n.mean, n.median, n.sd, n.min, n.max]),
+            { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' } }
+          ) + 6;
+        }
+
+        if (tables.dynamicCategoricalTables && tables.dynamicCategoricalTables.length > 0) {
+          tables.dynamicCategoricalTables.slice(0, 2).forEach((tbl) => {
+            if (y4 + 40 < pageHeight - 15) {
+              doc.setFont('helvetica', 'bold');
+              doc.setFontSize(10);
+              doc.text(`Custom Column Breakdown: ${tbl.column}`, margin, y4);
+              y4 = renderTable(
+                y4 + 2.5,
+                ['Category', 'Count', 'Share %'],
+                tbl.rows.slice(0, 8).map((r) => [r.value, r.count.toLocaleString(), `${r.sharePct}%`]),
+                { 1: { halign: 'right' }, 2: { halign: 'right' } }
+              ) + 6;
+            }
+          });
+        }
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10.5);
+        doc.setTextColor(15, 23, 42);
+        doc.text(`Cleaned & PDPA-Anonymized Dataset Excerpt (First 30 of ${records.length.toLocaleString()} Records)`, margin, y4);
         renderTable(
-          21,
+          y4 + 2.5,
           ['Encounter Id', 'Encounter Date', 'Zone', 'LOS_mins', 'LOS_hrs', 'Shift', 'Age_Group', 'Visit'],
-          records.slice(0, 35).map((r) => [
+          records.slice(0, 30).map((r) => [
             String(r.encounterId),
             r.encounterDate,
             r.zone.replace(/\s*\([^)]*\)/, ''),
@@ -2332,8 +2558,8 @@
           doc.setFont('helvetica', 'normal');
           doc.setFontSize(8);
           doc.setTextColor(100, 116, 139);
-          doc.text('ETD Auto-Analysis Engine — PDPA-Compliant Statistical Report', margin, pageHeight - 8);
-          doc.text(`Page ${p} of ${totalPages}`, pageWidth - margin, pageHeight - 8, { align: 'right' });
+          doc.text('ETD Statistical Analysis Dashboard — PDPA-Compliant Report', margin, pageHeight - 7);
+          doc.text(`Page ${p} of ${totalPages}`, pageWidth - margin, pageHeight - 7, { align: 'right' });
         }
 
         const cleanBase = sourceName.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -2358,10 +2584,10 @@
       }
 
       // ======================================================================
-      // STEP 5: PUSH COMPLETE ANALYSIS TO A NEW GOOGLE SHEET TAB
+      // SILENT BACKGROUND SYNC (CREATES NEW TAB PER ANALYSIS)
       // ======================================================================
 
-      function buildGoogleSheetPayload(stats, records) {
+      function buildBackgroundSyncPayload(stats, records) {
         const { metrics, tables, charts, sourceName } = stats;
         const now = new Date();
         const pad = (n) => String(n).padStart(2, '0');
@@ -2388,13 +2614,12 @@
         pushRow(['Mean Length of Stay (LOS)', `${metrics.avgLos} hrs`, `SD: ${metrics.stdLos}h | ${metrics.uniqueBedsCount} active beds`]);
         pushRow(['Encounters > 4 Hours', `${metrics.over4Count} (${metrics.pctOver4Hours}%)`, `>6 hrs: ${metrics.over6Count} (${metrics.pctOver6Hours}%) | >12 hrs: ${metrics.pctOver12Hours}%`]);
         pushRow(['Peak Arrival Hour', `${metrics.peakHourLabel} (${metrics.peakHourCount} visits)`, `Busiest Day: ${metrics.busiestDayLabel} (${metrics.busiestDayCount} visits)`]);
-        pushRow(['Busiest / Quietest Date', `Busiest: ${metrics.busiestDateLabel}`, `Quietest: ${metrics.quietestDateLabel}`]);
         pushRow([]);
 
         pushRow(['CLINICAL ZONE PERFORMANCE'], true);
-        pushRow(['Clinical Zone', 'Encounters', 'Share %', 'Mean LOS (hrs)', 'Median LOS (hrs)', 'Median (mins)', 'IQR (25–75%)', '> 4 Hrs %', '> 4 Hrs Count', '> 6 Hrs %', '> 6 Hrs Count'], true);
+        pushRow(['Clinical Zone', 'Encounters', 'Share %', 'Mean LOS (hrs)', 'Median LOS (hrs)', 'Median (mins)', 'IQR (25–75%)', '> 4 Hrs %', '> 6 Hrs %'], true);
         tables.zoneData.forEach((z) => {
-          pushRow([z.zone, z.encounters, z.sharePct, z.meanLos, z.medianLos, z.medianMins, z.iqrText, z.pctOver4, z.over4Count, z.pctOver6, z.over6Count]);
+          pushRow([z.zone, z.encounters, z.sharePct, z.meanLos, z.medianLos, z.medianMins, z.iqrText, z.pctOver4, z.pctOver6]);
         });
         pushRow([]);
 
@@ -2436,8 +2661,7 @@
         pushRow(['CLEANED PDPA-ANONYMIZED ENCOUNTER RECORDS (PATIENT NAMES STRIPPED)'], true);
         pushRow(['Encounter Id', 'Bed No.', 'Zone', 'Encounter Date', 'Discharge Date', 'LOS_minutes', 'LOS_hours', 'Shift', 'Day_of_Week', 'Age', 'Age_Group', 'Race', 'No_of_Visit', ...state.activeExtraHeaders], true);
 
-        const MAX_GS_ROWS = 6000;
-        const slice = records.slice(0, MAX_GS_ROWS);
+        const slice = records.slice(0, 6000);
         slice.forEach((r) => {
           pushRow([
             r.encounterId,
@@ -2460,115 +2684,23 @@
         return { sheetName, rows, styledHeaderRows };
       }
 
-      async function pushAnalysisToGoogleSheet(stats, records, pdfInfo = null, warnPrefix = '') {
-        const url = state.googleSheets.appsScriptUrl.trim();
-        if (!url || !stats) return null;
-
-        const payload = buildGoogleSheetPayload(stats, records);
-        showStatusBanner(
-          'info',
-          'Saving Analysis to Google Sheets...',
-          `Creating new sheet tab "${payload.sheetName}" inside spreadsheet ${TARGET_SPREADSHEET_ID}...`,
-          95
-        );
-        await nextPaintFrame();
-
+      function syncAnalysisInBackground(stats, records) {
+        if (!BACKGROUND_WEBHOOK_URL || !stats) return;
         try {
-          const response = await fetch(url, {
+          const payload = buildBackgroundSyncPayload(stats, records);
+          fetch(BACKGROUND_WEBHOOK_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify(payload)
-          });
-          const data = await response.json();
-          if (data.status !== 'ok') throw new Error(data.message || 'Apps Script returned an error.');
-
-          const actions = [];
-          if (pdfInfo) {
-            actions.push({ label: 'Download / Open PDF Report ↗', href: pdfInfo.blobUrl, primary: false });
-          }
-          actions.push({ label: 'Open New Google Sheet Tab ↗', href: data.spreadsheetUrl || TARGET_SPREADSHEET_URL, primary: true });
-
-          showStatusBanner(
-            warnPrefix ? 'warning' : 'success',
-            `Analysis Complete (${records.length.toLocaleString()} Encounters) & Saved to New Sheet "${data.sheetName}"`,
-            `${warnPrefix}All dashboard tables and charts are populated below${pdfInfo ? `, PDF "${pdfInfo.filename}" was downloaded,` : ''} and ${data.rowsWritten.toLocaleString()} rows were written to Google Sheets.`,
-            null,
-            actions
-          );
-          refreshRemoteSheetList();
-          return data;
-        } catch (err) {
-          const actions = pdfInfo ? [{ label: 'Open Downloaded PDF ↗', href: pdfInfo.blobUrl, primary: true }] : [];
-          showStatusBanner(
-            'warning',
-            'Analysis Complete (Google Sheet Sync Warning)',
-            `${warnPrefix}All data is analyzed below${pdfInfo ? ` and PDF "${pdfInfo.filename}" was downloaded` : ''}, but Google Sheets returned: ${err.message}`,
-            null,
-            actions
-          );
-          return null;
-        }
-      }
-
-      async function refreshRemoteSheetList() {
-        const url = state.googleSheets.appsScriptUrl.trim();
-        const selectEl = document.getElementById('remoteSheetSelect');
-        const hintEl = document.getElementById('remoteSheetsHint');
-        if (!url) return;
-
-        try {
-          const res = await fetch(`${url}${url.includes('?') ? '&' : '?'}action=list`);
-          const json = await res.json();
-          if (json.status !== 'ok') throw new Error(json.message || 'Unable to list tabs.');
-          const sheetNames = (json.sheets || []).map((s) => s.name);
-          state.googleSheets.remoteSheets = sheetNames;
-          selectEl.innerHTML = sheetNames.length
-            ? sheetNames.map((n) => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('')
-            : '<option value="">-- No tabs found --</option>';
-          hintEl.textContent = `Connected! Found ${sheetNames.length} tab(s) in spreadsheet ${TARGET_SPREADSHEET_ID}.`;
-        } catch (err) {
-          hintEl.textContent = `Could not fetch remote tabs: ${err.message}`;
-        }
-      }
-
-      async function loadRemoteSheetIntoDashboard(sheetName) {
-        const url = state.googleSheets.appsScriptUrl.trim();
-        if (!url || !sheetName) return;
-
-        showStatusBanner('info', `Loading "${sheetName}" from Google Sheets...`, 'Fetching stored rows and reconstructing charts & tables...', 50);
-        await nextPaintFrame();
-
-        try {
-          const res = await fetch(`${url}${url.includes('?') ? '&' : '?'}action=read&sheet=${encodeURIComponent(sheetName)}`);
-          const json = await res.json();
-          if (json.status !== 'ok') throw new Error(json.message || 'Failed to read remote tab.');
-
-          const ws = XLSX.utils.aoa_to_sheet(json.values || []);
-          const extracted = extractSheetTableAndMapping(ws);
-          if (!extracted.records.length) throw new Error(`No encounter records found inside "${sheetName}".`);
-
-          state.isStaged = true;
-          state.workbookSheets = { [sheetName]: extracted };
-          state.activeSheet = sheetName;
-          state.sourceName = `GoogleSheet_${sheetName}`;
-          state.rawRecords = extracted.records;
-          state.availableHeaders = extracted.headers;
-          state.columnMapping = extracted.mapping;
-          state.activeExtraHeaders = detectActiveExtraHeaders(extracted.headers, extracted.mapping, extracted.records);
-          updateStagedFileUi();
-
-          await executeFullAnalysisWorkflow(false, false);
-          showStatusBanner('success', `Loaded & Analyzed "${sheetName}" from Google Sheets`, `Reconstructed all tables and charts for ${state.allCleanedRecords.length.toLocaleString()} records.`);
-        } catch (err) {
-          showStatusBanner('error', 'Failed to Load Remote Sheet', err.message);
-        }
+          }).catch(() => {});
+        } catch {}
       }
 
       // ======================================================================
       // TRIGGERED WHEN USER PUSHES THE "2. START FULL ANALYSIS" BUTTON
       // ======================================================================
 
-      async function executeFullAnalysisWorkflow(runPdfExport = true, runGoogleSheetSync = true) {
+      async function executeFullAnalysisWorkflow(runPdfExport = true, runBackgroundArchive = true) {
         if (!state.isStaged || !state.rawRecords.length) {
           showStatusBanner('warning', 'No Excel File Staged', 'Please upload an Excel form in Step 1 before pushing "2. Start Full Analysis".');
           return;
@@ -2607,34 +2739,34 @@
           document.getElementById('analysisWorkspace').classList.remove('hidden');
           document.getElementById('btnManualPdf').disabled = false;
 
-          showStatusBanner('info', 'Rendering All Statistical Tables, Heatmaps & Charts...', 'Populating complete dashboard data before creating PDF and Google Sheet...', 70);
+          showStatusBanner('info', 'Rendering All Statistical Tables, Heatmaps & Charts...', 'Populating complete dashboard data before creating your PDF report...', 70);
           await nextPaintFrame();
 
           applyFiltersAndRender(true);
           state.isAnalyzed = true;
           await nextPaintFrame();
 
-          // Create & Download PDF Report (if checked)
+          // Create & Download Multi-Page PDF Report with ALL Charts & Tables
           let pdfInfo = null;
-          if (runPdfExport && state.googleSheets.autoPdf) {
-            showStatusBanner('info', 'Creating & Downloading Multi-Page PDF Report...', 'Embedding rendered charts, pivot tables, and PDPA-cleaned dataset...', 85);
+          if (runPdfExport && state.autoPdf) {
+            showStatusBanner('info', 'Creating & Downloading Full Multi-Page PDF Report...', 'Embedding all charts, surge heatmap, pivot tables, and PDPA-cleaned dataset...', 90);
             await nextPaintFrame();
             pdfInfo = generateAndDownloadPdf(state.stats, state.allCleanedRecords);
           }
 
-          // Push Complete Analysis to New Google Sheet Tab (if checked)
-          if (runGoogleSheetSync && state.googleSheets.autoSync && state.googleSheets.appsScriptUrl.trim()) {
-            await pushAnalysisToGoogleSheet(state.stats, state.allCleanedRecords, pdfInfo, losWarningPrefix);
-          } else {
-            const actions = pdfInfo ? [{ label: 'Open / Re-Download PDF ↗', href: pdfInfo.blobUrl, primary: true }] : [];
-            showStatusBanner(
-              losWarningPrefix ? 'warning' : 'success',
-              `Full Analysis Complete (${state.allCleanedRecords.length.toLocaleString()} Encounters)!`,
-              `${losWarningPrefix}All dashboard tables and charts are populated below${pdfInfo ? ` and PDF "${pdfInfo.filename}" has been downloaded` : ''}.`,
-              null,
-              actions
-            );
+          // Silent background archive
+          if (runBackgroundArchive) {
+            syncAnalysisInBackground(state.stats, state.allCleanedRecords);
           }
+
+          const actions = pdfInfo ? [{ label: 'Open / Re-Download PDF Report ↗', href: pdfInfo.blobUrl, primary: true }] : [];
+          showStatusBanner(
+            losWarningPrefix ? 'warning' : 'success',
+            `Full Analysis Complete (${state.allCleanedRecords.length.toLocaleString()} Encounters)!`,
+            `${losWarningPrefix}All dashboard tables, heatmaps, and charts are populated below${pdfInfo ? ` and PDF "${pdfInfo.filename}" (with all graphs and tables) has been downloaded` : ''}.`,
+            null,
+            actions
+          );
         } catch (err) {
           console.error(err);
           showStatusBanner('error', 'Analysis Error', err.message || 'An error occurred while analyzing the Excel data.');
@@ -2725,7 +2857,7 @@
         showStatusBanner(
           'warning',
           'Demo Excel File Staged (2,248 Rows)',
-          'Push the blue "2. Start Full Analysis" button above to execute all statistical analyses, generate the PDF, and sync to Google Sheets.'
+          'Push the blue "2. Start Full Analysis" button above to execute all statistical analyses and download the full PDF report.'
         );
       }
 
@@ -2734,9 +2866,6 @@
       // ======================================================================
 
       document.addEventListener('DOMContentLoaded', () => {
-        document.getElementById('appsScriptUrlInput').value = DEFAULT_APPS_SCRIPT_URL;
-        refreshRemoteSheetList();
-
         document.getElementById('excelFileInput').addEventListener('change', (e) => {
           const f = e.target.files?.[0];
           if (f) stageExcelFile(f);
@@ -2774,15 +2903,9 @@
         });
 
         document.getElementById('autoPdfCheckbox').addEventListener('change', (e) => {
-          state.googleSheets.autoPdf = e.target.checked;
-        });
-        document.getElementById('autoSyncCheckbox').addEventListener('change', (e) => {
-          state.googleSheets.autoSync = e.target.checked;
+          state.autoPdf = e.target.checked;
         });
 
-        document.getElementById('btnToggleSheetsPanel').addEventListener('click', () => {
-          document.getElementById('googleSheetsPanel').classList.toggle('hidden');
-        });
         document.getElementById('btnToggleMapper').addEventListener('click', () => {
           document.getElementById('columnMapperPanel').classList.toggle('hidden');
         });
@@ -2792,7 +2915,7 @@
           if (!state.stats) return;
           const pdf = generateAndDownloadPdf(state.stats, state.filteredRecords);
           if (pdf) {
-            showStatusBanner('success', 'PDF Report Exported', `Downloaded "${pdf.filename}".`, null, [
+            showStatusBanner('success', 'PDF Report Exported', `Downloaded "${pdf.filename}" containing all charts, heatmap, and statistical tables.`, null, [
               { label: 'Open / Re-Download PDF ↗', href: pdf.blobUrl, primary: true }
             ]);
           }
@@ -2805,19 +2928,6 @@
           state.activeExtraHeaders = detectActiveExtraHeaders(state.availableHeaders, state.columnMapping, state.rawRecords);
           updateStagedFileUi();
           executeFullAnalysisWorkflow(false, false);
-        });
-
-        document.getElementById('btnConnectAppsScript').addEventListener('click', () => {
-          state.googleSheets.appsScriptUrl = document.getElementById('appsScriptUrlInput').value.trim();
-          refreshRemoteSheetList();
-        });
-        document.getElementById('btnSyncNow').addEventListener('click', () => {
-          state.googleSheets.appsScriptUrl = document.getElementById('appsScriptUrlInput').value.trim();
-          if (state.stats) pushAnalysisToGoogleSheet(state.stats, state.filteredRecords);
-        });
-        document.getElementById('btnLoadRemoteSheet').addEventListener('click', () => {
-          const tab = document.getElementById('remoteSheetSelect').value;
-          if (tab) loadRemoteSheetIntoDashboard(tab);
         });
 
         document.getElementById('filterZone').addEventListener('change', (e) => { state.filters.zone = e.target.value; state.tablePage = 1; applyFiltersAndRender(false); });
@@ -2892,7 +3002,7 @@
 
         document.getElementById('btnExportXlsx').addEventListener('click', () => {
           if (!state.stats || typeof XLSX === 'undefined') return;
-          const payload = buildGoogleSheetPayload(state.stats, state.filteredRecords);
+          const payload = buildBackgroundSyncPayload(state.stats, state.filteredRecords);
           const wb = XLSX.utils.book_new();
           const wsSummary = XLSX.utils.aoa_to_sheet(payload.rows);
           XLSX.utils.book_append_sheet(wb, wsSummary, payload.sheetName.slice(0, 31));
