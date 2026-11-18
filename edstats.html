@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ETD Auto-Analysis &amp; Google Sheets Backend (edstats.html)</title>
+  <title>ETD Auto-Analysis &amp; Google Sheets Engine (edstats.html)</title>
 
   <!-- Google Fonts: Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -54,7 +54,7 @@
       </div>
       <h3 class="text-xl font-bold text-slate-900">Drop Excel File to Auto-Analyze</h3>
       <p class="text-sm text-slate-500 mt-1.5">
-        Automatically computes clinical KPIs, creates a new sheet tab in Google Sheets, and downloads your PDPA PDF report.
+        Analyzes all data &amp; charts first, creates &amp; downloads your multi-page PDF report, and saves a new sheet tab in Google Sheets.
       </p>
     </div>
   </div>
@@ -62,7 +62,6 @@
   <!-- Sticky Top Navigation Header -->
   <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3.5">
-      <!-- Brand & Active Dataset Info -->
       <div>
         <div class="flex items-center gap-2.5">
           <div class="p-2 bg-blue-600 text-white rounded-xl shadow-sm">
@@ -81,25 +80,29 @@
             <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            <span id="headerFileName">Ready to Upload</span>
+            <span id="headerFileName">Ready — Upload Excel File</span>
           </span>
           <select id="sheetSelector" class="hidden bg-blue-50 text-blue-800 border border-blue-200 rounded-lg px-2 py-0.5 font-semibold text-xs outline-none"></select>
           <span id="headerPeriod" class="text-slate-500"></span>
+          <span class="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg font-semibold">
+            PDPA Scrubbed
+          </span>
         </div>
       </div>
 
       <!-- Primary Toolbar Actions -->
       <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto">
         <button id="btnToggleSheetsPanel" type="button" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold border transition-colors bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300">
-          <span id="gsStatusDot" class="w-2 h-2 rounded-full bg-amber-500"></span>
+          <span id="gsStatusDot" class="w-2 h-2 rounded-full bg-emerald-500"></span>
           Google Sheet Backend
         </button>
 
         <button id="btnToggleMapper" type="button" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 transition-colors">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-          </svg>
           Columns &amp; Extras
+        </button>
+
+        <button id="btnLoadDemo" type="button" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors">
+          Demo Data
         </button>
 
         <button id="btnManualPdf" type="button" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-slate-800 hover:bg-slate-900 text-white transition-colors shadow-sm">
@@ -124,6 +127,8 @@
 
   <!-- Main Workspace Container -->
   <main class="max-w-7xl mx-auto px-4 sm:px-6 mt-5 space-y-5">
+
+    <!-- Step-by-Step Pipeline Status & Download Banner -->
     <div id="statusBannerContainer" class="space-y-3"></div>
 
     <!-- Collapsible Google Sheets Backend Panel -->
@@ -131,7 +136,7 @@
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-3.5">
         <div>
           <div class="flex items-center gap-2">
-            <h2 class="text-base font-bold text-slate-900">Google Sheets Backend Integration</h2>
+            <h2 class="text-base font-bold text-slate-900">Google Sheets Backend (New Sheet Tab Per Analysis)</h2>
             <span id="gsBadge" class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
               Connected
             </span>
@@ -143,37 +148,62 @@
             </a>
           </p>
         </div>
-        <button id="btnSyncNow" type="button" class="inline-flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition-colors shadow-sm">
-          Push Current Analysis to New Tab
-        </button>
-      </div>
-      <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
-        <label for="appsScriptUrlInput" class="block text-xs font-bold text-slate-700 mb-1">
-          Google Apps Script Web App URL
-        </label>
-        <div class="flex flex-col sm:flex-row gap-2">
-          <input id="appsScriptUrlInput" type="url" class="flex-1 text-xs border border-slate-300 rounded-xl px-3 py-2.5 bg-white focus:border-blue-500 outline-none" />
-          <button id="btnConnectAppsScript" type="button" class="px-4 py-2.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors shrink-0">
-            Verify Connection
+
+        <div class="flex flex-wrap items-center gap-2">
+          <a href="https://docs.google.com/spreadsheets/d/1fBVDhsmO7DAZht69Ra45zbM71Fx-Obf80WkI8CvsgIc/edit?gid=0#gid=0" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 transition-colors">
+            Open Google Sheet ↗
+          </a>
+          <button id="btnSyncNow" type="button" class="inline-flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition-colors shadow-sm">
+            Push Current Analysis to New Tab
           </button>
         </div>
-        <div class="mt-2 text-xs text-slate-600 font-semibold">
-          <label class="cursor-pointer"><input id="autoSyncCheckbox" type="checkbox" checked class="mr-1" /> Automatically create a new tab on every upload</label>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2.5">
+          <label for="appsScriptUrlInput" class="block text-xs font-bold text-slate-700">
+            Google Apps Script Web App URL
+          </label>
+          <div class="flex flex-col sm:flex-row gap-2">
+            <input id="appsScriptUrlInput" type="url" class="flex-1 text-xs border border-slate-300 rounded-xl px-3 py-2 bg-white focus:border-blue-500 outline-none" />
+            <button id="btnConnectAppsScript" type="button" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors shrink-0">
+              Refresh Tabs
+            </button>
+          </div>
+          <label class="inline-flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer pt-1">
+            <input id="autoSyncCheckbox" type="checkbox" checked class="rounded text-blue-600" />
+            Automatically create a new Google Sheet tab after analysis &amp; PDF generation
+          </label>
+        </div>
+
+        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col justify-between space-y-2.5">
+          <div>
+            <div class="text-xs font-bold text-slate-700">Load Past Analysis Sheet from Google Sheets</div>
+            <div id="remoteSheetsHint" class="text-[11px] text-slate-500">Checking existing tabs in your Google Sheet...</div>
+          </div>
+          <div class="flex items-center gap-2">
+            <select id="remoteSheetSelect" class="flex-1 text-xs border border-slate-300 rounded-xl px-2.5 py-2 bg-white outline-none">
+              <option value="">-- Loading tabs --</option>
+            </select>
+            <button id="btnLoadRemoteSheet" type="button" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-900 text-white transition-colors shrink-0">
+              Load Tab
+            </button>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- Collapsible Smart Column Mapping Drawer -->
+    <!-- Collapsible Smart Column Mapping & Extra Columns Drawer -->
     <section id="columnMapperPanel" class="hidden bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
         <div>
           <h3 class="font-bold text-sm text-slate-900">Detected Schema &amp; Dynamic Extra Columns</h3>
-          <p class="text-xs text-slate-500">
-            Unmapped custom columns from your Excel file are preserved and will be included in the exports automatically.
+          <p id="extraColsSummary" class="text-xs text-slate-500">
+            All non-empty extra columns in your Excel file are automatically preserved in the dataset, CSV/Excel exports, and Google Sheet tabs.
           </p>
         </div>
         <button id="btnApplyMapping" type="button" class="text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-xl">
-          Re-Analyze &amp; Sync
+          Re-Analyze with Mapping
         </button>
       </div>
       <div id="mappingSelectGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
@@ -186,17 +216,19 @@
           <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
           </svg>
-          Dynamic Filters
+          Dynamic Slice &amp; Filter Controls
           <span id="activeFilterBadge" class="hidden bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-full text-[11px] font-bold"></span>
         </div>
+
         <div class="flex items-center gap-2">
           <div class="inline-flex rounded-xl bg-slate-100 p-0.5 text-xs">
             <button id="btnLosMedian" type="button" class="px-3 py-1 rounded-lg font-bold bg-white text-slate-900 shadow-sm transition-colors">Median LOS</button>
             <button id="btnLosMean" type="button" class="px-3 py-1 rounded-lg font-bold text-slate-600 transition-colors">Mean LOS</button>
           </div>
-          <button id="btnResetFilters" type="button" class="hidden inline-flex items-center gap-1 text-xs font-bold text-red-600 hover:bg-red-50 px-2.5 py-1.5 rounded-xl transition-colors">Reset</button>
+          <button id="btnResetFilters" type="button" class="hidden inline-flex items-center gap-1 text-xs font-bold text-red-600 hover:bg-red-50 px-2.5 py-1.5 rounded-xl transition-colors">Reset Filters</button>
         </div>
       </div>
+
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
         <select id="filterZone" class="text-xs border border-slate-300 rounded-xl px-3 py-2.5 bg-slate-50 focus:bg-white outline-none"><option value="ALL">All Clinical Zones</option></select>
         <select id="filterShift" class="text-xs border border-slate-300 rounded-xl px-3 py-2.5 bg-slate-50 focus:bg-white outline-none">
@@ -207,7 +239,7 @@
         </select>
         <select id="filterAge" class="text-xs border border-slate-300 rounded-xl px-3 py-2.5 bg-slate-50 focus:bg-white outline-none"><option value="ALL">All Age Groups</option></select>
         <select id="filterVisit" class="text-xs border border-slate-300 rounded-xl px-3 py-2.5 bg-slate-50 focus:bg-white outline-none"><option value="ALL">All Visit Types</option></select>
-        <input id="filterSearch" type="text" placeholder="Search Encounter ID, Bed, Race..." class="text-xs border border-slate-300 rounded-xl px-3 py-2.5 bg-slate-50 focus:bg-white outline-none" />
+        <input id="filterSearch" type="text" placeholder="Search Encounter ID, Bed, Race, Extra..." class="text-xs border border-slate-300 rounded-xl px-3 py-2.5 bg-slate-50 focus:bg-white outline-none" />
       </div>
     </section>
 
@@ -216,10 +248,10 @@
 
     <!-- Interactive View Navigation Tabs -->
     <nav class="bg-white rounded-2xl border border-slate-200 p-1.5 flex flex-wrap gap-1.5 shadow-sm">
-      <button data-tab="overview" class="tab-btn flex-1 min-w-[160px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold bg-slate-900 text-white shadow-sm transition-all">Overview &amp; Surge</button>
+      <button data-tab="overview" class="tab-btn flex-1 min-w-[160px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold bg-slate-900 text-white shadow-sm transition-all">Overview &amp; Surge Heatmap</button>
       <button data-tab="zones" class="tab-btn flex-1 min-w-[160px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-slate-100 transition-all">Zones &amp; Bed Utilization</button>
-      <button data-tab="demographics" class="tab-btn flex-1 min-w-[160px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-slate-100 transition-all">Demographics</button>
-      <button data-tab="data" id="tabBtnData" class="tab-btn flex-1 min-w-[160px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-slate-100 transition-all">Cleaned Data</button>
+      <button data-tab="demographics" class="tab-btn flex-1 min-w-[160px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-slate-100 transition-all">Demographics &amp; Repeat Audit</button>
+      <button data-tab="data" id="tabBtnData" class="tab-btn flex-1 min-w-[160px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-slate-100 transition-all">PDPA-Cleaned Data</button>
     </nav>
 
     <!-- TAB 1: OVERVIEW & SURGE HEATMAP -->
@@ -227,19 +259,37 @@
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
           <h3 class="text-base font-bold text-slate-900">Encounter Volume by Clinical Zone</h3>
-          <div class="relative h-72 w-full mt-3"><canvas id="chartZoneVolume"></canvas></div>
+          <p class="text-xs text-slate-500 mb-3">Click any zone bar to filter the entire dashboard.</p>
+          <div class="relative h-72 w-full"><canvas id="chartZoneVolume"></canvas></div>
         </div>
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
           <h3 id="chartZoneLosTitle" class="text-base font-bold text-slate-900">Median Turnaround Time (Hours) by Zone</h3>
-          <div class="relative h-72 w-full mt-3"><canvas id="chartZoneLos"></canvas></div>
+          <p class="text-xs text-slate-500 mb-3">Comparing turnaround durations across clinical zones.</p>
+          <div class="relative h-72 w-full"><canvas id="chartZoneLos"></canvas></div>
         </div>
       </div>
+
       <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-        <h3 class="text-base font-bold text-slate-900 mb-3">24-Hour Arrival Volume &amp; Turnaround Overlay</h3>
+        <h3 class="text-base font-bold text-slate-900">24-Hour Arrival Volume &amp; Turnaround Overlay</h3>
+        <p class="text-xs text-slate-500 mb-3">Hourly patient arrivals (bars) paired with turnaround duration (red line).</p>
         <div class="relative h-72 w-full"><canvas id="chartHourlyCombo"></canvas></div>
       </div>
+
       <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
-        <h3 class="text-base font-bold text-slate-900 mb-3">Arrival Surge Heatmap (Day of Week &times; Hour of Day)</h3>
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+          <div>
+            <h3 class="text-base font-bold text-slate-900">Arrival Surge Heatmap (Day of Week &times; Hour of Day)</h3>
+            <p class="text-xs text-slate-500">Peak arrival hours across the 7-day week.</p>
+          </div>
+          <div class="flex items-center gap-1.5 text-[11px] text-slate-500">
+            <span>Low</span>
+            <span class="w-4 h-3 rounded bg-amber-100 border border-slate-200"></span>
+            <span class="w-4 h-3 rounded bg-amber-300"></span>
+            <span class="w-4 h-3 rounded bg-orange-500"></span>
+            <span class="w-4 h-3 rounded bg-red-600"></span>
+            <span id="heatmapPeakLabel">Peak</span>
+          </div>
+        </div>
         <div id="heatmapContainer" class="min-w-[760px]"></div>
       </div>
     </section>
@@ -247,48 +297,79 @@
     <!-- TAB 2: ZONES & BED UTILIZATION -->
     <section id="tab-zones" class="tab-panel hidden space-y-6">
       <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
-        <div class="p-5 border-b border-slate-100"><h3 class="text-base font-bold text-slate-900">Clinical Zone Performance Matrix</h3></div>
+        <div class="p-5 border-b border-slate-100">
+          <h3 class="text-base font-bold text-slate-900">Clinical Zone Performance Matrix</h3>
+          <p class="text-xs text-slate-500">Turnaround distribution and 4-hour / 6-hour breach rates by clinical zone.</p>
+        </div>
         <table class="w-full text-left border-collapse text-xs sm:text-sm">
           <thead>
             <tr class="bg-slate-50 text-slate-600 border-b border-slate-200">
               <th class="py-3 px-4 font-bold">Clinical Zone</th>
               <th class="py-3 px-4 font-bold text-right">Encounters</th>
+              <th class="py-3 px-4 font-bold text-right">Share</th>
               <th class="py-3 px-4 font-bold text-right">Mean LOS</th>
               <th class="py-3 px-4 font-bold text-right">Median LOS</th>
+              <th class="py-3 px-4 font-bold text-right">IQR (25–75%)</th>
               <th class="py-3 px-4 font-bold text-right">&gt; 4 Hours</th>
+              <th class="py-3 px-4 font-bold text-right">&gt; 6 Hours</th>
             </tr>
           </thead>
           <tbody id="tableZoneBody" class="divide-y divide-slate-100"></tbody>
         </table>
       </div>
+
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
-          <div class="p-5 border-b border-slate-100"><h3 class="text-base font-bold text-slate-900">Operational Shift Performance</h3></div>
-          <table class="w-full text-left border-collapse text-xs sm:text-sm">
-            <thead>
-              <tr class="bg-slate-50 text-slate-600 border-b border-slate-200">
-                <th class="py-3 px-4 font-bold">Shift Window</th>
-                <th class="py-3 px-4 font-bold text-right">Encounters</th>
-                <th class="py-3 px-4 font-bold text-right">Median LOS</th>
-              </tr>
-            </thead>
-            <tbody id="tableShiftBody" class="divide-y divide-slate-100"></tbody>
-          </table>
+        <div class="space-y-6">
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
+            <div class="p-5 border-b border-slate-100"><h3 class="text-base font-bold text-slate-900">Operational Shift Performance</h3></div>
+            <table class="w-full text-left border-collapse text-xs sm:text-sm">
+              <thead>
+                <tr class="bg-slate-50 text-slate-600 border-b border-slate-200">
+                  <th class="py-3 px-4 font-bold">Shift Window</th>
+                  <th class="py-3 px-4 font-bold text-right">Encounters</th>
+                  <th class="py-3 px-4 font-bold text-right">Share</th>
+                  <th class="py-3 px-4 font-bold text-right">Mean LOS</th>
+                  <th class="py-3 px-4 font-bold text-right">Median LOS</th>
+                </tr>
+              </thead>
+              <tbody id="tableShiftBody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
+            <div class="p-5 border-b border-slate-100"><h3 class="text-base font-bold text-slate-900">Day-of-Week Surge Breakdown</h3></div>
+            <table class="w-full text-left border-collapse text-xs sm:text-sm">
+              <thead>
+                <tr class="bg-slate-50 text-slate-600 border-b border-slate-200">
+                  <th class="py-3 px-4 font-bold">Day of Week</th>
+                  <th class="py-3 px-4 font-bold text-right">Encounters</th>
+                  <th class="py-3 px-4 font-bold text-right">Share</th>
+                  <th class="py-3 px-4 font-bold text-right">Mean LOS</th>
+                  <th class="py-3 px-4 font-bold text-right">Median LOS</th>
+                </tr>
+              </thead>
+              <tbody id="tableDowBody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
         </div>
+
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-          <h3 class="text-base font-bold text-slate-900 mb-3">Top 15 Highest-Turnover Beds</h3>
-          <div class="relative h-72 w-full"><canvas id="chartTopBeds"></canvas></div>
+          <h3 class="text-base font-bold text-slate-900">Top 15 Highest-Turnover Beds</h3>
+          <p class="text-xs text-slate-500 mb-3">Individual bays ranked by total patient encounters handled.</p>
+          <div class="relative h-[430px] w-full"><canvas id="chartTopBeds"></canvas></div>
         </div>
       </div>
     </section>
 
-    <!-- TAB 3: DEMOGRAPHICS -->
+    <!-- TAB 3: DEMOGRAPHICS & REPEAT-VISITOR AUDIT -->
     <section id="tab-demographics" class="tab-panel hidden space-y-6">
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-          <h3 id="ageChartTitle" class="text-base font-bold text-slate-900 mb-3">Age Bracket Distribution</h3>
+          <h3 id="ageChartTitle" class="text-base font-bold text-slate-900">Age Bracket Distribution</h3>
+          <p class="text-xs text-slate-500 mb-3">Click any age segment to filter the entire dashboard.</p>
           <div class="relative h-72 w-full"><canvas id="chartAgeDonut"></canvas></div>
         </div>
+
         <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
           <div class="p-5 border-b border-slate-100"><h3 class="text-base font-bold text-slate-900">Turnaround Time by Age Cohort</h3></div>
           <table class="w-full text-left border-collapse text-xs sm:text-sm">
@@ -296,6 +377,8 @@
               <tr class="bg-slate-50 text-slate-600 border-b border-slate-200">
                 <th class="py-3 px-4 font-bold">Age Bracket</th>
                 <th class="py-3 px-4 font-bold text-right">Visits</th>
+                <th class="py-3 px-4 font-bold text-right">Share</th>
+                <th class="py-3 px-4 font-bold text-right">Mean LOS</th>
                 <th class="py-3 px-4 font-bold text-right">Median LOS</th>
               </tr>
             </thead>
@@ -303,6 +386,45 @@
           </table>
         </div>
       </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
+          <div class="p-5 border-b border-slate-100"><h3 class="text-base font-bold text-slate-900">Race / Citizenship Breakdown</h3></div>
+          <table class="w-full text-left border-collapse text-xs sm:text-sm">
+            <thead>
+              <tr class="bg-slate-50 text-slate-600 border-b border-slate-200">
+                <th class="py-3 px-4 font-bold">Race / Status</th>
+                <th class="py-3 px-4 font-bold text-right">Encounters</th>
+                <th class="py-3 px-4 font-bold text-right">Share</th>
+                <th class="py-3 px-4 font-bold text-right">Median LOS</th>
+              </tr>
+            </thead>
+            <tbody id="tableRaceBody" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+          <div>
+            <h3 class="text-base font-bold text-slate-900">Visit Classification &amp; Repeat-Visitor Audit (PDPA-Safe)</h3>
+            <p class="text-xs text-slate-500">Repeat-visitor counts computed in memory without exposing patient names.</p>
+          </div>
+          <div id="repeatVisitorCards" class="grid grid-cols-3 gap-3"></div>
+          <table class="w-full text-left border-collapse text-xs sm:text-sm">
+            <thead>
+              <tr class="bg-slate-50 text-slate-600 border-b border-slate-200">
+                <th class="py-2.5 px-3 font-bold">Visit Classification</th>
+                <th class="py-2.5 px-3 font-bold text-right">Encounters</th>
+                <th class="py-2.5 px-3 font-bold text-right">Share</th>
+                <th class="py-2.5 px-3 font-bold text-right">Median LOS</th>
+              </tr>
+            </thead>
+            <tbody id="tableVisitBody" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Dynamic Extra Columns Summary (Rendered automatically if custom columns exist) -->
+      <div id="dynamicExtraAnalyticsContainer" class="hidden grid grid-cols-1 md:grid-cols-3 gap-6"></div>
     </section>
 
     <!-- TAB 4: PDPA-CLEANED DATASET EXPLORER -->
@@ -310,7 +432,7 @@
       <div class="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h3 id="cleanedTableTitle" class="text-base font-bold text-slate-900">Cleaned &amp; PDPA-Anonymized Dataset</h3>
-          <p class="text-xs text-slate-500">Unmapped custom extra columns are dynamically preserved in exports.</p>
+          <p class="text-xs text-slate-500">Direct identifiers (Patient Name) and 100%-blank columns removed; active extra columns preserved.</p>
         </div>
         <div class="flex flex-wrap gap-2">
           <button id="btnExportCsv" type="button" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-900 text-white transition-colors">Download CSV</button>
@@ -339,22 +461,31 @@
     (function () {
       'use strict';
 
-      // Required User Backend Settings
+      // Bound Google Spreadsheet & Apps Script Web App Endpoint
       const TARGET_SPREADSHEET_ID = '1fBVDhsmO7DAZht69Ra45zbM71Fx-Obf80WkI8CvsgIc';
+      const TARGET_SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/1fBVDhsmO7DAZht69Ra45zbM71Fx-Obf80WkI8CvsgIc/edit?gid=0#gid=0';
       const DEFAULT_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxlmRf5DRaHHN_NEBCuU7TnLQQ8m6QGzjLmEZSQgUmMr_NKdFswo9Eixundj5a52lS_/exec';
 
-      const ZONE_COLORS = { 'Green Zone (GZ)': '#10b981', 'Yellow Zone (YZ)': '#f59e0b', 'Observation Zone (OBZ)': '#3b82f6', 'Asthma Bay (ASB)': '#8b5cf6', 'Red Zone (RZ)': '#ef4444', 'Other': '#64748b' };
+      const ZONE_COLORS = {
+        'Green Zone (GZ)': '#10b981',
+        'Yellow Zone (YZ)': '#f59e0b',
+        'Observation Zone (OBZ)': '#3b82f6',
+        'Asthma Bay (ASB)': '#8b5cf6',
+        'Red Zone (RZ)': '#ef4444',
+        'Other': '#64748b'
+      };
       const FALLBACK_PALETTE = ['#0ea5e9', '#14b8a6', '#f97316', '#ec4899', '#6366f1', '#84cc16'];
       const AGE_COLORS = ['#38bdf8', '#818cf8', '#a78bfa', '#f472b6', '#fb7185', '#94a3b8'];
       const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
       const state = {
-        sourceName: '',
+        sourceName: 'Demo_ETD_Oct2026.xlsx',
         workbookSheets: {},
-        activeSheet: '',
+        activeSheet: 'Sheet1',
         rawRecords: [],
         availableHeaders: [],
         columnMapping: {},
+        activeExtraHeaders: [],
         allCleanedRecords: [],
         filteredRecords: [],
         stats: null,
@@ -364,60 +495,24 @@
         tablePage: 1,
         pageSize: 20,
         charts: { zoneVolume: null, zoneLos: null, hourlyCombo: null, topBeds: null, ageDonut: null },
-        googleSheets: { appsScriptUrl: DEFAULT_APPS_SCRIPT_URL, autoSync: true, connected: true },
-        lastPdfBlobUrl: null
+        googleSheets: { appsScriptUrl: DEFAULT_APPS_SCRIPT_URL, autoSync: true, connected: true, remoteSheets: [] },
+        lastPdfBlobUrl: null,
+        lastPdfFilename: null
       };
 
-      function parseFlexibleDate(val) {
-        if (!val) return null;
-        if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
-        if (typeof val === 'number' && val > 10000) {
-          const d = new Date(Math.round((val - 25569) * 86400 * 1000));
-          return isNaN(d.getTime()) ? null : d;
-        }
-        if (typeof val === 'string') {
-          const trimmed = val.trim().replace(/,/g, '');
-          if (!trimmed) return null;
-          const dmyMatch = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})(?:[T\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?)?$/i);
-          if (dmyMatch) {
-            let day = parseInt(dmyMatch[1], 10), month = parseInt(dmyMatch[2], 10), year = parseInt(dmyMatch[3], 10);
-            if (year < 100) year += 2000;
-            if (month > 12 && day <= 12) { const t = day; day = month; month = t; }
-            let hour = dmyMatch[4] ? parseInt(dmyMatch[4], 10) : 0;
-            const minute = dmyMatch[5] ? parseInt(dmyMatch[5], 10) : 0, second = dmyMatch[6] ? parseInt(dmyMatch[6], 10) : 0;
-            const ampm = dmyMatch[7] ? dmyMatch[7].toUpperCase() : null;
-            if (ampm === 'PM' && hour < 12) hour += 12;
-            if (ampm === 'AM' && hour === 12) hour = 0;
-            const constructed = new Date(year, month - 1, day, hour, minute, second);
-            if (!isNaN(constructed.getTime())) return constructed;
-          }
-          const native = new Date(trimmed);
-          if (!isNaN(native.getTime())) return native;
-        }
-        return null;
+      // Yields to the browser render loop so UI & Charts paint completely before PDF export
+      function nextPaintFrame() {
+        return new Promise((resolve) => {
+          requestAnimationFrame(() => setTimeout(resolve, 120));
+        });
       }
 
-      function parseFlexibleAge(val) {
-        if (val === null || val === undefined || val === '') return null;
-        if (typeof val === 'number') return val;
-        const str = String(val).trim().toLowerCase();
-        const match = str.match(/(\d+(?:\.\d+)?)/);
-        if (!match) return null;
-        const num = parseFloat(match[1]);
-        if (str.includes('month') || str.includes('bln') || str.endsWith('m')) return Number((num / 12).toFixed(2));
-        return num >= 0 && num <= 130 ? num : null;
-      }
-
-      function categorizeClinicalZone(bedRaw) {
-        const clean = String(bedRaw || '').trim().toUpperCase();
-        if (!clean) return 'Other';
-        if (clean.startsWith('ETD-GZ') || clean.includes('GREEN') || clean.startsWith('GZ')) return 'Green Zone (GZ)';
-        if (clean.startsWith('ETD-YZ') || clean.includes('YELLOW') || clean.startsWith('YZ')) return 'Yellow Zone (YZ)';
-        if (clean.startsWith('ETD-OBZ') || clean.includes('OBS')) return 'Observation Zone (OBZ)';
-        if (clean.startsWith('ETD-ASB') || clean.includes('ASTHMA')) return 'Asthma Bay (ASB)';
-        if (clean.startsWith('ETD-RZ') || clean.includes('RED') || clean.includes('RESUS')) return 'Red Zone (RZ)';
-        const parts = clean.split('-');
-        return parts.length >= 2 ? parts.slice(0, -1).join('-') : clean;
+      function escapeHtml(str) {
+        return String(str ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
       }
 
       function formatDateTime(d) {
@@ -426,9 +521,99 @@
         return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
       }
 
-      function escapeHtml(str) {
-        return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      function parseFlexibleDate(val) {
+        if (val === null || val === undefined || val === '') return null;
+        if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
+
+        if (typeof val === 'number' && isFinite(val) && val > 10000) {
+          const d = new Date(Math.round((val - 25569) * 86400 * 1000));
+          return isNaN(d.getTime()) ? null : d;
+        }
+
+        if (typeof val === 'string') {
+          const trimmed = val.trim().replace(/,/g, '');
+          if (!trimmed) return null;
+
+          if (/^\d{5}(\.\d+)?$/.test(trimmed)) {
+            const d = new Date(Math.round((parseFloat(trimmed) - 25569) * 86400 * 1000));
+            return isNaN(d.getTime()) ? null : d;
+          }
+
+          const dmyMatch = trimmed.match(
+            /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})(?:[T\s]+(\d{1,2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?\s*(AM|PM)?)?$/i
+          );
+          if (dmyMatch) {
+            let day = parseInt(dmyMatch[1], 10);
+            let month = parseInt(dmyMatch[2], 10);
+            let year = parseInt(dmyMatch[3], 10);
+            if (year < 100) year += 2000;
+            if (month > 12 && day <= 12) { const t = day; day = month; month = t; }
+
+            let hour = dmyMatch[4] ? parseInt(dmyMatch[4], 10) : 0;
+            const minute = dmyMatch[5] ? parseInt(dmyMatch[5], 10) : 0;
+            const second = dmyMatch[6] ? parseInt(dmyMatch[6], 10) : 0;
+            const ms = dmyMatch[7] ? parseInt(dmyMatch[7].slice(0, 3).padEnd(3, '0'), 10) : 0;
+            const ampm = dmyMatch[8] ? dmyMatch[8].toUpperCase() : null;
+
+            if (ampm === 'PM' && hour < 12) hour += 12;
+            if (ampm === 'AM' && hour === 12) hour = 0;
+
+            const constructed = new Date(year, month - 1, day, hour, minute, second, ms);
+            if (!isNaN(constructed.getTime())) return constructed;
+          }
+
+          const native = new Date(trimmed);
+          if (!isNaN(native.getTime())) return native;
+        }
+        return null;
       }
+
+      function parseFlexibleAge(val) {
+        if (val === null || val === undefined || val === '') return null;
+        if (typeof val === 'number' && isFinite(val) && val >= 0 && val <= 130) return val;
+        const str = String(val).trim().toLowerCase();
+        const match = str.match(/(\d+(?:\.\d+)?)/);
+        if (!match) return null;
+        const num = parseFloat(match[1]);
+        if (str.includes('month') || str.includes('bln') || str.endsWith('m')) return Number((num / 12).toFixed(2));
+        if (str.includes('day') || str.includes('hari') || str.endsWith('d')) return Number((num / 365).toFixed(2));
+        return num >= 0 && num <= 130 ? num : null;
+      }
+
+      function categorizeClinicalZone(bedRaw) {
+        const clean = String(bedRaw || '').trim();
+        if (!clean) return 'Other';
+        const upper = clean.toUpperCase();
+        if (upper.startsWith('ETD-GZ') || upper.includes('GREEN') || upper.startsWith('GZ')) return 'Green Zone (GZ)';
+        if (upper.startsWith('ETD-YZ') || upper.includes('YELLOW') || upper.startsWith('YZ')) return 'Yellow Zone (YZ)';
+        if (upper.startsWith('ETD-OBZ') || upper.includes('OBS') || upper.startsWith('OBZ')) return 'Observation Zone (OBZ)';
+        if (upper.startsWith('ETD-ASB') || upper.includes('ASTHMA') || upper.startsWith('ASB')) return 'Asthma Bay (ASB)';
+        if (upper.startsWith('ETD-RZ') || upper.includes('RED') || upper.includes('RESUS') || upper.startsWith('RZ')) return 'Red Zone (RZ)';
+        const parts = clean.split('-');
+        return parts.length >= 2 ? parts.slice(0, -1).join('-') : clean;
+      }
+
+      function calculateMedian(arr) {
+        if (!arr || arr.length === 0) return 0;
+        const sorted = [...arr].sort((a, b) => a - b);
+        const mid = Math.floor(sorted.length / 2);
+        return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+      }
+
+      function calculateQuantile(arr, q) {
+        if (!arr || arr.length === 0) return 0;
+        const sorted = [...arr].sort((a, b) => a - b);
+        const pos = (sorted.length - 1) * q;
+        const base = Math.floor(pos);
+        const rest = pos - base;
+        return sorted[base + 1] !== undefined
+          ? sorted[base] + rest * (sorted[base + 1] - sorted[base])
+          : sorted[base];
+      }
+
+      // ======================================================================
+      // STEP 1: HEADER DETECTION & DYNAMIC SCHEMA EXTRACTION
+      // ======================================================================
 
       function extractSheetTableAndMapping(sheet) {
         const matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: null });
@@ -444,15 +629,19 @@
           const nonEmpty = row.filter((c) => c !== null && String(c).trim() !== '');
           if (nonEmpty.length < 2) continue;
           let hits = 0;
-          nonEmpty.forEach((cell) => { if (keywords.some((kw) => String(cell).toLowerCase().includes(kw))) hits += 3; });
+          nonEmpty.forEach((cell) => {
+            if (keywords.some((kw) => String(cell).toLowerCase().includes(kw))) hits += 3;
+          });
           const score = hits + nonEmpty.length * 0.5;
           if (score > bestScore) { bestScore = score; bestHeaderIdx = r; }
         }
 
-        // Fallback if completely unrecognizable but tabular
         if (bestScore <= 0) {
           for (let r = 0; r < scanLimit; r++) {
-            if ((matrix[r] || []).filter(c => c !== null && String(c).trim() !== '').length >= 2) { bestHeaderIdx = r; break; }
+            if ((matrix[r] || []).filter((c) => c !== null && String(c).trim() !== '').length >= 2) {
+              bestHeaderIdx = r;
+              break;
+            }
           }
         }
 
@@ -461,15 +650,17 @@
         const uniqueHeaders = rawHeaderRow.map((cell, idx) => {
           const base = cell !== null && String(cell).trim() !== '' ? String(cell).trim() : `Column_${idx + 1}`;
           if (!seen[base]) { seen[base] = 1; return base; }
-          seen[base] += 1; return `${base}_${seen[base]}`;
+          seen[base] += 1;
+          return `${base}_${seen[base]}`;
         });
 
         const records = [];
         for (let r = bestHeaderIdx + 1; r < matrix.length; r++) {
           const rowArr = matrix[r] || [];
-          if (rowArr.filter(c => c !== null && String(c).trim() !== '').length === 0) continue;
+          if (rowArr.filter((c) => c !== null && String(c).trim() !== '').length === 0) continue;
           const firstText = String(rowArr[0] || '').trim().toLowerCase();
-          if (firstText === 'total' || firstText.startsWith('jumlah')) continue;
+          if (firstText === 'total' || firstText === 'grand total' || firstText.startsWith('jumlah')) continue;
+
           const obj = {};
           uniqueHeaders.forEach((h, cIdx) => { obj[h] = rowArr[cIdx] !== undefined ? rowArr[cIdx] : null; });
           records.push(obj);
@@ -492,9 +683,9 @@
         };
 
         const mapping = {
-          encounterId: findCol(['encounter id', 'enc id', 'visit id', 'reg no', 'encounter', 'id', 'mrn', 'ic', 'kp', 'no. pendaftaran']),
-          bedNo: findCol(['bed no.', 'bed no', 'bed number', 'bed', 'zone', 'ward', 'cubicle', 'bay', 'katil', 'zon', 'lokasi', 'location']),
-          encounterDate: findCol(['encounter date', 'arrival date', 'registration date', 'reg date', 'check in', 'start date', 'visit date', 'date', 'tarikh', 'masa', 'waktu', 'time in'], ['discharge', 'decide', 'birth', 'dob', 'out']),
+          encounterId: findCol(['encounter id', 'enc id', 'visit id', 'reg no', 'encounter', 'id', 'mrn', 'no. pendaftaran']),
+          bedNo: findCol(['bed no.', 'bed no', 'bed number', 'bed', 'zone', 'ward', 'cubicle', 'bay', 'katil', 'zon', 'lokasi']),
+          encounterDate: findCol(['encounter date', 'arrival date', 'registration date', 'reg date', 'check in', 'start date', 'visit date', 'date', 'tarikh', 'masa', 'time in'], ['discharge', 'decide', 'birth', 'dob', 'out']),
           dischargeDate: findCol(['discharge date', 'discharge', 'check out', 'depart', 'end date', 'exit', 'keluar', 'time out']),
           age: findCol(['age', 'umur', 'patient age']),
           race: findCol(['race', 'ethnic', 'bangsa', 'nationality', 'citizen', 'keturunan']),
@@ -503,6 +694,19 @@
         };
 
         return { headers: uniqueHeaders, records, mapping };
+      }
+
+      // ======================================================================
+      // STEP 2: NORMALIZE RECORDS & COMPUTE ALL STATISTICAL MATRICES
+      // ======================================================================
+
+      function detectActiveExtraHeaders(headers, mapping, rawRows) {
+        const mappedSet = new Set(Object.values(mapping).filter(Boolean));
+        return headers.filter((h) => {
+          if (mappedSet.has(h)) return false;
+          // Exclude columns that are 100% empty (e.g., blank Admit Decide By / Date)
+          return rawRows.some((r) => r[h] !== null && r[h] !== undefined && String(r[h]).trim() !== '');
+        });
       }
 
       function normalizeEtdRecords(rawRows, mapping) {
@@ -515,7 +719,7 @@
           const bedRaw = mapping.bedNo ? String(row[mapping.bedNo] || '').trim() : '';
           const encIdRaw = mapping.encounterId ? String(row[mapping.encounterId] || '').trim() : '';
 
-          if (!encDate && !bedRaw && !encIdRaw) return; // Skip totally blank mapped rows
+          if (!encDate && !bedRaw && !encIdRaw) return;
           const effectiveEncDate = encDate || disDate || new Date();
           const effectiveDisDate = disDate || effectiveEncDate;
 
@@ -530,6 +734,7 @@
 
           const jsDay = effectiveEncDate.getDay();
           const dayOfWeek = DAYS_OF_WEEK[jsDay === 0 ? 6 : jsDay - 1];
+          const dateOnly = `${effectiveEncDate.getFullYear()}-${String(effectiveEncDate.getMonth() + 1).padStart(2, '0')}-${String(effectiveEncDate.getDate()).padStart(2, '0')}`;
 
           const ageVal = mapping.age ? parseFlexibleAge(row[mapping.age]) : null;
           let ageGroup = 'Unknown';
@@ -541,6 +746,10 @@
             else ageGroup = 'Geriatric (60+)';
           }
 
+          const raceRaw = mapping.race ? String(row[mapping.race] || '').trim() : '';
+          const visitRaw = mapping.visitType ? String(row[mapping.visitType] || '').trim() : '';
+          const patientNameRaw = mapping.patientName ? String(row[mapping.patientName] || '').trim().toUpperCase() : '';
+
           records.push({
             encounterId: encIdRaw || `ENC-${String(idx + 1).padStart(5, '0')}`,
             bedNo: bedRaw || 'N/A',
@@ -549,6 +758,7 @@
             dischargeDateObj: effectiveDisDate,
             encounterDate: formatDateTime(effectiveEncDate),
             dischargeDate: formatDateTime(effectiveDisDate),
+            dateOnly,
             hour,
             dayOfWeek,
             shift,
@@ -556,189 +766,1666 @@
             losHours: Number(losHours.toFixed(2)),
             age: ageVal !== null ? Math.round(ageVal) : null,
             ageGroup,
-            race: mapping.race ? String(row[mapping.race] || '').trim().toUpperCase() || 'UNSPECIFIED' : 'UNSPECIFIED',
-            visitType: mapping.visitType ? String(row[mapping.visitType] || '').trim().toUpperCase() || '1ST TIME' : '1ST TIME',
-            patientHashKey: (mapping.patientName ? String(row[mapping.patientName] || '').trim().toUpperCase() : '') || encIdRaw || `ANON-${idx}`,
-            _raw: row // CRITICAL: Preserves ALL extra dynamic unmapped columns for export
+            race: raceRaw ? raceRaw.toUpperCase() : 'UNSPECIFIED',
+            visitType: visitRaw ? visitRaw.toUpperCase() : '1ST TIME',
+            patientHashKey: patientNameRaw || encIdRaw || `ANON-${idx}`,
+            _raw: row
           });
         });
+
         return records;
       }
 
-      function computeEtdStatistics(records, sourceName) {
+      function computeEtdStatistics(records, sourceName, extraHeaders = []) {
         if (!records || records.length === 0) return null;
-        const calcMedian = (arr) => {
-          if (!arr.length) return 0;
-          const s = [...arr].sort((a, b) => a - b);
-          const m = Math.floor(s.length / 2);
-          return s.length % 2 !== 0 ? s[m] : (s[m - 1] + s[m]) / 2;
+
+        const zoneMap = {};
+        const bedMap = {};
+        const shiftMap = {
+          'Morning (08:00–14:59)': [],
+          'Evening (15:00–21:59)': [],
+          'Night (22:00–07:59)': []
         };
+        const dowMap = {
+          Monday: [], Tuesday: [], Wednesday: [], Thursday: [], Friday: [], Saturday: [], Sunday: []
+        };
+        const ageOrder = ['Pediatric (<12)', 'Adolescent (12–17)', 'Young Adult (18–39)', 'Middle-Aged (40–59)', 'Geriatric (60+)', 'Unknown'];
+        const ageMap = {};
+        ageOrder.forEach((g) => { ageMap[g] = []; });
 
-        const zoneMap = {}, bedMap = {}, shiftMap = {}, dowMap = {}, ageMap = {}, raceMap = {}, visitMap = {}, hourlyArr = Array.from({length:24}, (_, i) => ({h:i, c:0, los:[]}));
-        let totLos = 0, o4 = 0, o6 = 0, o12 = 0;
+        const raceMap = {};
+        const visitMap = {};
+        const dailyCounts = {};
+        const patientCounts = {};
+        const heatmapMatrix = {};
+        DAYS_OF_WEEK.forEach((d) => { heatmapMatrix[d] = Array(24).fill(0); });
 
-        records.forEach(r => {
-          if(!zoneMap[r.zone]) zoneMap[r.zone] = []; zoneMap[r.zone].push(r.losHours);
-          if(!shiftMap[r.shift]) shiftMap[r.shift] = []; shiftMap[r.shift].push(r.losHours);
-          if(!dowMap[r.dayOfWeek]) dowMap[r.dayOfWeek] = []; dowMap[r.dayOfWeek].push(r.losHours);
-          if(!ageMap[r.ageGroup]) ageMap[r.ageGroup] = []; ageMap[r.ageGroup].push(r.losHours);
-          hourlyArr[r.hour].c++; hourlyArr[r.hour].los.push(r.losHours);
-          totLos += r.losHours; if(r.losHours > 4) o4++; if(r.losHours > 6) o6++; if(r.losHours > 12) o12++;
+        const hourlyArrivals = Array.from({ length: 24 }, (_, i) => ({
+          hour: i,
+          label: `${String(i).padStart(2, '0')}:00`,
+          count: 0,
+          losList: []
+        }));
+
+        const extraBreakdowns = {};
+        extraHeaders.slice(0, 3).forEach((h) => { extraBreakdowns[h] = {}; });
+
+        let totalLosHours = 0;
+        let over4Count = 0;
+        let over6Count = 0;
+        let over12Count = 0;
+        const allLos = [];
+        const allAges = [];
+        let minDate = null;
+        let maxDate = null;
+
+        records.forEach((rec) => {
+          if (!minDate || rec.encounterDateObj < minDate) minDate = rec.encounterDateObj;
+          if (!maxDate || rec.encounterDateObj > maxDate) maxDate = rec.encounterDateObj;
+
+          dailyCounts[rec.dateOnly] = (dailyCounts[rec.dateOnly] || 0) + 1;
+          patientCounts[rec.patientHashKey] = (patientCounts[rec.patientHashKey] || 0) + 1;
+
+          if (!zoneMap[rec.zone]) zoneMap[rec.zone] = [];
+          zoneMap[rec.zone].push(rec.losHours);
+
+          if (rec.bedNo && rec.bedNo !== 'N/A') {
+            if (!bedMap[rec.bedNo]) bedMap[rec.bedNo] = { bed: rec.bedNo, zone: rec.zone, losList: [] };
+            bedMap[rec.bedNo].losList.push(rec.losHours);
+          }
+
+          if (shiftMap[rec.shift]) shiftMap[rec.shift].push(rec.losHours);
+          if (dowMap[rec.dayOfWeek]) dowMap[rec.dayOfWeek].push(rec.losHours);
+          if (heatmapMatrix[rec.dayOfWeek] && rec.hour >= 0 && rec.hour < 24) {
+            heatmapMatrix[rec.dayOfWeek][rec.hour] += 1;
+          }
+
+          if (hourlyArrivals[rec.hour]) {
+            hourlyArrivals[rec.hour].count += 1;
+            hourlyArrivals[rec.hour].losList.push(rec.losHours);
+          }
+
+          if (!ageMap[rec.ageGroup]) ageMap[rec.ageGroup] = [];
+          ageMap[rec.ageGroup].push(rec.losHours);
+          if (rec.age !== null) allAges.push(rec.age);
+
+          if (!raceMap[rec.race]) raceMap[rec.race] = [];
+          raceMap[rec.race].push(rec.losHours);
+
+          if (!visitMap[rec.visitType]) visitMap[rec.visitType] = [];
+          visitMap[rec.visitType].push(rec.losHours);
+
+          Object.keys(extraBreakdowns).forEach((h) => {
+            const val = String(rec._raw?.[h] ?? '').trim() || '(Blank)';
+            extraBreakdowns[h][val] = (extraBreakdowns[h][val] || 0) + 1;
+          });
+
+          totalLosHours += rec.losHours;
+          allLos.push(rec.losHours);
+          if (rec.losHours > 4) over4Count++;
+          if (rec.losHours > 6) over6Count++;
+          if (rec.losHours > 12) over12Count++;
         });
 
-        const zoneData = Object.keys(zoneMap).map(z => ({
-          zone: z, shortZone: z.replace(/\s*\([^)]*\)/, ''),
-          color: ZONE_COLORS[z] || FALLBACK_PALETTE[0],
-          encounters: zoneMap[z].length,
-          meanLos: zoneMap[z].reduce((a,b)=>a+b,0)/zoneMap[z].length,
-          medianLos: calcMedian(zoneMap[z]),
-          pctOver4: ((zoneMap[z].filter(v=>v>4).length/zoneMap[z].length)*100).toFixed(1)
-        })).sort((a,b) => b.encounters - a.encounters);
+        const totalEncounters = records.length;
+        const uniqueArr = Object.values(patientCounts);
+        const uniquePatientsCount = uniqueArr.length;
+        const singleVisitPatients = uniqueArr.filter((c) => c === 1).length;
+        const twoVisitPatients = uniqueArr.filter((c) => c === 2).length;
+        const threePlusPatients = uniqueArr.filter((c) => c >= 3).length;
+        const maxPatientVisits = uniqueArr.reduce((m, c) => Math.max(m, c), 0);
+
+        const activeDays = Object.keys(dailyCounts).length || 1;
+        const avgDailyVisits = (totalEncounters / activeDays).toFixed(1);
+
+        const avgLos = Number((totalLosHours / totalEncounters).toFixed(2));
+        const medianLos = Number(calculateMedian(allLos).toFixed(2));
+        const iqr25 = Number(calculateQuantile(allLos, 0.25).toFixed(2));
+        const iqr75 = Number(calculateQuantile(allLos, 0.75).toFixed(2));
+        const pctOver4Hours = Number(((over4Count / totalEncounters) * 100).toFixed(1));
+        const pctOver6Hours = Number(((over6Count / totalEncounters) * 100).toFixed(1));
+        const pctOver12Hours = Number(((over12Count / totalEncounters) * 100).toFixed(1));
+
+        const medianAge = allAges.length ? Math.round(calculateMedian(allAges)) : 'N/A';
+        const meanAge = allAges.length ? (allAges.reduce((a, b) => a + b, 0) / allAges.length).toFixed(1) : 'N/A';
+
+        const zoneData = Object.keys(zoneMap)
+          .map((zone, idx) => {
+            const list = zoneMap[zone];
+            const mean = list.reduce((a, b) => a + b, 0) / list.length;
+            const med = calculateMedian(list);
+            const q25 = calculateQuantile(list, 0.25);
+            const q75 = calculateQuantile(list, 0.75);
+            return {
+              zone,
+              shortZone: zone.replace(/\s*\([^)]*\)/, ''),
+              color: ZONE_COLORS[zone] || FALLBACK_PALETTE[idx % FALLBACK_PALETTE.length],
+              encounters: list.length,
+              sharePct: Number(((list.length / totalEncounters) * 100).toFixed(1)),
+              meanLos: Number(mean.toFixed(2)),
+              medianLos: Number(med.toFixed(2)),
+              medianMins: Math.round(med * 60),
+              iqrText: `${q25.toFixed(1)}–${q75.toFixed(1)}h`,
+              pctOver4: Number(((list.filter((v) => v > 4).length / list.length) * 100).toFixed(1)),
+              pctOver6: Number(((list.filter((v) => v > 6).length / list.length) * 100).toFixed(1))
+            };
+          })
+          .sort((a, b) => b.encounters - a.encounters);
+
+        const topBedsData = Object.values(bedMap)
+          .map((b) => ({
+            bed: b.bed,
+            zone: b.zone,
+            encounters: b.losList.length,
+            sharePct: Number(((b.losList.length / totalEncounters) * 100).toFixed(1)),
+            medianLos: Number(calculateMedian(b.losList).toFixed(2)),
+            occupiedHours: Number(b.losList.reduce((acc, v) => acc + v, 0).toFixed(1))
+          }))
+          .sort((a, b) => b.encounters - a.encounters);
+
+        const shiftData = Object.keys(shiftMap).map((shift) => {
+          const list = shiftMap[shift];
+          return {
+            shift,
+            shortShift: shift.split(' ')[0],
+            encounters: list.length,
+            sharePct: Number(((list.length / totalEncounters) * 100).toFixed(1)),
+            meanLos: list.length ? Number((list.reduce((a, b) => a + b, 0) / list.length).toFixed(2)) : 0,
+            medianLos: Number(calculateMedian(list).toFixed(2))
+          };
+        });
+
+        const dowData = DAYS_OF_WEEK.map((day) => {
+          const list = dowMap[day];
+          return {
+            day,
+            encounters: list.length,
+            sharePct: Number(((list.length / totalEncounters) * 100).toFixed(1)),
+            meanLos: list.length ? Number((list.reduce((a, b) => a + b, 0) / list.length).toFixed(2)) : 0,
+            medianLos: Number(calculateMedian(list).toFixed(2))
+          };
+        });
+
+        const ageData = ageOrder
+          .filter((g) => ageMap[g] && ageMap[g].length > 0)
+          .map((group, idx) => {
+            const list = ageMap[group];
+            return {
+              name: group,
+              value: list.length,
+              color: AGE_COLORS[idx % AGE_COLORS.length],
+              sharePct: Number(((list.length / totalEncounters) * 100).toFixed(1)),
+              meanLos: Number((list.reduce((a, b) => a + b, 0) / list.length).toFixed(2)),
+              medianLos: Number(calculateMedian(list).toFixed(2))
+            };
+          });
+
+        const raceData = Object.keys(raceMap)
+          .map((race) => ({
+            race,
+            encounters: raceMap[race].length,
+            sharePct: Number(((raceMap[race].length / totalEncounters) * 100).toFixed(1)),
+            medianLos: Number(calculateMedian(raceMap[race]).toFixed(2))
+          }))
+          .sort((a, b) => b.encounters - a.encounters);
+
+        const visitTypeData = Object.keys(visitMap)
+          .map((type) => ({
+            type,
+            encounters: visitMap[type].length,
+            sharePct: Number(((visitMap[type].length / totalEncounters) * 100).toFixed(1)),
+            medianLos: Number(calculateMedian(visitMap[type]).toFixed(2))
+          }))
+          .sort((a, b) => b.encounters - a.encounters);
+
+        const hourlySeries = hourlyArrivals.map((h) => ({
+          hour: h.hour,
+          label: h.label,
+          count: h.count,
+          medianLos: Number(calculateMedian(h.losList).toFixed(2)),
+          meanLos: h.losList.length ? Number((h.losList.reduce((a, b) => a + b, 0) / h.losList.length).toFixed(2)) : 0
+        }));
+
+        const peakHourObj = hourlySeries.reduce((best, cur) => (cur.count > best.count ? cur : best), hourlySeries[0]);
+        const busiestDayObj = dowData.reduce((best, cur) => (cur.encounters > best.encounters ? cur : best), dowData[0]);
+
+        let maxHeatmapCell = 1;
+        DAYS_OF_WEEK.forEach((d) => {
+          heatmapMatrix[d].forEach((val) => {
+            if (val > maxHeatmapCell) maxHeatmapCell = val;
+          });
+        });
+
+        const dynamicExtraTables = Object.keys(extraBreakdowns).map((colName) => {
+          const entries = Object.entries(extraBreakdowns[colName])
+            .map(([val, cnt]) => ({
+              value: val,
+              count: cnt,
+              sharePct: Number(((cnt / totalEncounters) * 100).toFixed(1))
+            }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 10);
+          return { column: colName, rows: entries };
+        });
 
         return {
           sourceName,
           metrics: {
-            totalEncounters: records.length, avgLos: totLos/records.length,
-            over4Count: o4, pctOver4Hours: ((o4/records.length)*100).toFixed(1)
+            totalEncounters,
+            uniquePatientsCount,
+            uniqueBedsCount: Object.keys(bedMap).length,
+            activeDays,
+            avgDailyVisits,
+            avgLos,
+            medianLos,
+            iqr25,
+            iqr75,
+            over4Count,
+            over6Count,
+            over12Count,
+            pctOver4Hours,
+            pctOver6Hours,
+            pctOver12Hours,
+            medianAge,
+            meanAge,
+            peakHourLabel: peakHourObj ? peakHourObj.label : 'N/A',
+            peakHourCount: peakHourObj ? peakHourObj.count : 0,
+            busiestDayLabel: busiestDayObj ? busiestDayObj.day : 'N/A',
+            busiestDayCount: busiestDayObj ? busiestDayObj.encounters : 0,
+            dateRangeText: `${formatDateTime(minDate).slice(0, 10)} to ${formatDateTime(maxDate).slice(0, 10)}`,
+            repeatStats: {
+              singleVisitPatients,
+              twoVisitPatients,
+              threePlusPatients,
+              maxPatientVisits
+            }
           },
           charts: {
             zoneData,
-            hourlySeries: hourlyArr.map(h => ({ label: `${String(h.h).padStart(2,'0')}:00`, count: h.c, medianLos: calcMedian(h.los), meanLos: h.los.length ? h.los.reduce((a,b)=>a+b,0)/h.los.length : 0 })),
-            ageData: Object.keys(ageMap).map((a,i) => ({ name: a, value: ageMap[a].length, color: AGE_COLORS[i%AGE_COLORS.length] })),
-            heatmapMatrix: { Monday: Array(24).fill(0), Tuesday: Array(24).fill(0), Wednesday: Array(24).fill(0), Thursday: Array(24).fill(0), Friday: Array(24).fill(0), Saturday: Array(24).fill(0), Sunday: Array(24).fill(0) }
+            hourlySeries,
+            ageData,
+            dowData,
+            topBedsData: topBedsData.slice(0, 15),
+            heatmapMatrix,
+            maxHeatmapCell
           },
-          tables: { zoneData }
+          tables: {
+            zoneData,
+            topBedsData,
+            shiftData,
+            dowData,
+            ageData,
+            raceData,
+            visitTypeData,
+            dynamicExtraTables
+          }
         };
       }
 
-      function buildGoogleSheetPayload(stats, records) {
-        const { sourceName } = stats;
-        const now = new Date();
-        const sheetName = `ETD_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${sourceName.replace(/[^a-zA-Z0-9_]/g,'_').slice(0,30)}`;
+      // ======================================================================
+      // STEP 3: RENDER ALL DASHBOARD DATA, HEATMAPS & CHARTS FIRST
+      // ======================================================================
 
-        const extraHeaders = state.availableHeaders.filter(h => !Object.values(state.columnMapping).includes(h));
-        const rows = [];
-        rows.push([`ETD STATISTICAL ANALYSIS REPORT — ${sourceName}`]);
-        rows.push(['Encounter Id', 'Bed No.', 'Zone', 'Encounter Date', 'Discharge Date', 'LOS_minutes', 'LOS_hours', 'Shift', 'Age', 'Race', 'Visit', ...extraHeaders]);
+      function showStatusBanner(type, title, message, progressPct = null, actions = []) {
+        const container = document.getElementById('statusBannerContainer');
+        const styles = {
+          success: 'bg-emerald-50 border-emerald-300 text-emerald-950',
+          info: 'bg-blue-50 border-blue-300 text-blue-950',
+          warning: 'bg-amber-50 border-amber-300 text-amber-950',
+          error: 'bg-red-50 border-red-300 text-red-950'
+        };
 
-        const MAX_PUSH = 5000;
-        const pushRecords = records.slice(0, MAX_PUSH);
-        if (records.length > MAX_PUSH) rows.push([`NOTE: Dataset truncated to first ${MAX_PUSH} rows to prevent API limits.`]);
+        const progressHtml = progressPct !== null
+          ? `<div class="w-full bg-blue-200/70 rounded-full h-2 mt-2.5 overflow-hidden">
+               <div class="bg-blue-600 h-2 rounded-full transition-all duration-200" style="width:${progressPct}%"></div>
+             </div>`
+          : '';
 
-        pushRecords.forEach(r => {
-          rows.push([
-            r.encounterId, r.bedNo, r.zone, r.encounterDate, r.dischargeDate, r.losMinutes, r.losHours, r.shift, r.age ?? '', r.race, r.visitType,
-            ...extraHeaders.map(h => r._raw[h] ?? '')
-          ]);
-        });
-        return { sheetName, rows };
+        const actionsHtml = actions.length > 0
+          ? `<div class="flex flex-wrap items-center gap-2 shrink-0">
+               ${actions.map((act) =>
+                 act.href
+                   ? `<a href="${escapeHtml(act.href)}" target="_blank" rel="noopener noreferrer" download="${escapeHtml(act.download || '')}" class="inline-flex items-center gap-1 text-xs font-bold ${act.primary ? 'bg-slate-900 hover:bg-slate-800 text-white' : 'bg-white hover:bg-slate-100 text-slate-900 border border-slate-300'} px-3.5 py-2 rounded-xl transition-colors">${escapeHtml(act.label)}</a>`
+                   : `<button type="button" onclick="${escapeHtml(act.onClick)}" class="inline-flex items-center gap-1 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white px-3.5 py-2 rounded-xl transition-colors">${escapeHtml(act.label)}</button>`
+               ).join('')}
+             </div>`
+          : '';
+
+        container.innerHTML = `
+          <div class="border p-4 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm ${styles[type] || styles.info}">
+            <div class="flex-1 w-full">
+              <h4 class="font-bold text-sm">${escapeHtml(title)}</h4>
+              <p class="text-xs mt-0.5 opacity-90">${escapeHtml(message)}</p>
+              ${progressHtml}
+            </div>
+            ${actionsHtml}
+          </div>
+        `;
       }
 
-      async function pushAnalysisToGoogleSheet(stats, records) {
-        if (!state.googleSheets.appsScriptUrl) return;
-        const payload = buildGoogleSheetPayload(stats, records);
-        showStatusBanner('info', 'Syncing to Google Sheets...', `Creating new tab "${payload.sheetName}" with ${payload.rows.length} rows...`);
+      function renderColumnMapper() {
+        const grid = document.getElementById('mappingSelectGrid');
+        const fields = [
+          { key: 'encounterId', label: 'Encounter ID' },
+          { key: 'bedNo', label: 'Bed No. / Clinical Zone' },
+          { key: 'encounterDate', label: 'Encounter / Arrival Date' },
+          { key: 'dischargeDate', label: 'Discharge Date' },
+          { key: 'age', label: 'Patient Age' },
+          { key: 'race', label: 'Race / Nationality' },
+          { key: 'visitType', label: 'Visit Type (1st / Follow Up)' },
+          { key: 'patientName', label: 'Patient Name (Repeat Audit Only)' }
+        ];
+
+        const extraSummary = document.getElementById('extraColsSummary');
+        if (state.activeExtraHeaders.length > 0) {
+          extraSummary.textContent = `Detected ${state.activeExtraHeaders.length} populated custom column(s) [${state.activeExtraHeaders.join(', ')}] — automatically preserved in tables & exports.`;
+        } else {
+          extraSummary.textContent = 'All populated columns mapped cleanly; 100%-empty columns excluded automatically.';
+        }
+
+        grid.innerHTML = fields
+          .map((f) => {
+            const options = ['<option value="">-- Not Mapped --</option>']
+              .concat(
+                state.availableHeaders.map(
+                  (h) => `<option value="${escapeHtml(h)}" ${state.columnMapping[f.key] === h ? 'selected' : ''}>${escapeHtml(h)}</option>`
+                )
+              )
+              .join('');
+            return `
+              <div>
+                <label class="block text-xs font-bold text-slate-600 mb-1">${escapeHtml(f.label)}</label>
+                <select data-map-key="${f.key}" class="map-select w-full text-xs border border-slate-300 rounded-xl px-2.5 py-2 bg-slate-50 focus:bg-white outline-none">
+                  ${options}
+                </select>
+              </div>
+            `;
+          })
+          .join('');
+      }
+
+      function populateFilterDropdowns() {
+        const zones = Array.from(new Set(state.allCleanedRecords.map((r) => r.zone))).sort();
+        const ages = Array.from(new Set(state.allCleanedRecords.map((r) => r.ageGroup)));
+        const visits = Array.from(new Set(state.allCleanedRecords.map((r) => r.visitType))).sort();
+
+        const zoneSel = document.getElementById('filterZone');
+        zoneSel.innerHTML = '<option value="ALL">All Clinical Zones</option>' + zones.map((z) => `<option value="${escapeHtml(z)}">${escapeHtml(z)}</option>`).join('');
+        zoneSel.value = state.filters.zone;
+
+        const ageSel = document.getElementById('filterAge');
+        ageSel.innerHTML = '<option value="ALL">All Age Groups</option>' + ages.map((a) => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
+        ageSel.value = state.filters.ageGroup;
+
+        const visitSel = document.getElementById('filterVisit');
+        visitSel.innerHTML = '<option value="ALL">All Visit Types</option>' + visits.map((v) => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+        visitSel.value = state.filters.visitType;
+      }
+
+      function resetAllFilters() {
+        state.filters = { zone: 'ALL', shift: 'ALL', ageGroup: 'ALL', visitType: 'ALL', search: '' };
+        state.tablePage = 1;
+        document.getElementById('filterShift').value = 'ALL';
+        document.getElementById('filterSearch').value = '';
+      }
+
+      function applyFiltersAndRender(instantDraw = false) {
+        const { zone, shift, ageGroup, visitType, search } = state.filters;
+        const q = search.trim().toLowerCase();
+
+        state.filteredRecords = state.allCleanedRecords.filter((rec) => {
+          if (zone !== 'ALL' && rec.zone !== zone) return false;
+          if (shift !== 'ALL' && rec.shift !== shift) return false;
+          if (ageGroup !== 'ALL' && rec.ageGroup !== ageGroup) return false;
+          if (visitType !== 'ALL' && rec.visitType !== visitType) return false;
+          if (q) {
+            const extraText = state.activeExtraHeaders.map((h) => rec._raw?.[h] ?? '').join(' ');
+            const hay = `${rec.encounterId} ${rec.bedNo} ${rec.zone} ${rec.race} ${extraText}`.toLowerCase();
+            if (!hay.includes(q)) return false;
+          }
+          return true;
+        });
+
+        const activeCount = [zone !== 'ALL', shift !== 'ALL', ageGroup !== 'ALL', visitType !== 'ALL', q !== ''].filter(Boolean).length;
+        const badge = document.getElementById('activeFilterBadge');
+        const resetBtn = document.getElementById('btnResetFilters');
+        if (activeCount > 0) {
+          badge.classList.remove('hidden');
+          badge.textContent = `${activeCount} Active (${state.filteredRecords.length.toLocaleString()} of ${state.allCleanedRecords.length.toLocaleString()})`;
+          resetBtn.classList.remove('hidden');
+        } else {
+          badge.classList.add('hidden');
+          resetBtn.classList.add('hidden');
+        }
+
+        state.stats = computeEtdStatistics(state.filteredRecords, state.sourceName, state.activeExtraHeaders);
+        renderAllDashboardVisuals(instantDraw);
+      }
+
+      function renderAllDashboardVisuals(instantDraw = false) {
+        const stats = state.stats;
+        document.getElementById('tabBtnData').textContent = `PDPA-Cleaned Data (${state.filteredRecords.length.toLocaleString()})`;
+
+        if (!stats || !stats.metrics) {
+          document.getElementById('kpiGrid').innerHTML = '<div class="col-span-full bg-white p-8 rounded-2xl border border-slate-200 text-center text-sm font-semibold text-slate-500">No encounters match the current filter selection.</div>';
+          return;
+        }
+
+        const { metrics, charts, tables } = stats;
+        document.getElementById('headerPeriod').innerHTML = `Period: <strong class="text-slate-700">${escapeHtml(metrics.dateRangeText)}</strong>`;
+
+        // 1. Render 6 Executive KPI Cards
+        const kpiCards = [
+          { title: 'Encounters', value: metrics.totalEncounters.toLocaleString(), sub: `Avg <strong>${metrics.avgDailyVisits}</strong> / day (${metrics.activeDays}d)`, color: 'text-slate-900' },
+          { title: 'Unique Patients', value: metrics.uniquePatientsCount.toLocaleString(), sub: `<strong>${(metrics.repeatStats.twoVisitPatients + metrics.repeatStats.threePlusPatients).toLocaleString()}</strong> repeat visitors`, color: 'text-slate-900' },
+          { title: 'Median LOS', value: `${metrics.medianLos.toFixed(2)} hrs`, sub: `IQR: ${metrics.iqr25}–${metrics.iqr75} hrs`, color: 'text-emerald-700' },
+          { title: 'Mean LOS', value: `${metrics.avgLos.toFixed(2)} hrs`, sub: `Across ${metrics.uniqueBedsCount} active beds`, color: 'text-slate-900' },
+          { title: 'LOS > 4 Hours', value: `${metrics.pctOver4Hours}%`, sub: `${metrics.over4Count.toLocaleString()} cases (>6h: ${metrics.pctOver6Hours}%)`, color: 'text-red-600' },
+          { title: 'Peak Surge', value: metrics.peakHourLabel, sub: `${metrics.peakHourCount} arrivals | Top: ${metrics.busiestDayLabel.slice(0, 3)}`, color: 'text-blue-700' }
+        ];
+
+        document.getElementById('kpiGrid').innerHTML = kpiCards
+          .map(
+            (c) => `
+            <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+              <div class="text-xs font-bold text-slate-500 uppercase tracking-wider">${escapeHtml(c.title)}</div>
+              <div class="text-2xl font-extrabold ${c.color} mt-1.5">${escapeHtml(c.value)}</div>
+              <div class="text-[11px] text-slate-500 mt-1">${c.sub}</div>
+            </div>
+          `
+          )
+          .join('');
+
+        // 2. Render All 5 Chart.js Charts
+        renderAllCharts(charts, instantDraw);
+
+        // 3. Render 7x24 Arrival Surge Heatmap
+        renderHeatmap(charts.heatmapMatrix, charts.maxHeatmapCell);
+
+        // 4. Render All Statistical Tables
+        document.getElementById('tableZoneBody').innerHTML = tables.zoneData
+          .map(
+            (z) => `
+            <tr class="hover:bg-slate-50">
+              <td class="py-3 px-4 font-semibold text-slate-900 flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full shrink-0" style="background:${z.color}"></span>
+                ${escapeHtml(z.zone)}
+              </td>
+              <td class="py-3 px-4 text-right font-semibold">${z.encounters.toLocaleString()}</td>
+              <td class="py-3 px-4 text-right text-slate-500">${z.sharePct}%</td>
+              <td class="py-3 px-4 text-right">${z.meanLos.toFixed(2)} hrs</td>
+              <td class="py-3 px-4 text-right font-bold text-slate-900">${z.medianLos.toFixed(2)} hrs <span class="text-xs font-normal text-slate-400">(${z.medianMins}m)</span></td>
+              <td class="py-3 px-4 text-right text-slate-500">${escapeHtml(z.iqrText)}</td>
+              <td class="py-3 px-4 text-right"><span class="px-2 py-0.5 rounded-full text-xs font-bold ${z.pctOver4 > 50 ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}">${z.pctOver4}%</span></td>
+              <td class="py-3 px-4 text-right text-slate-500">${z.pctOver6}%</td>
+            </tr>
+          `
+          )
+          .join('');
+
+        document.getElementById('tableShiftBody').innerHTML = tables.shiftData
+          .map(
+            (s) => `
+            <tr class="hover:bg-slate-50">
+              <td class="py-3 px-4 font-semibold text-slate-900">${escapeHtml(s.shift)}</td>
+              <td class="py-3 px-4 text-right font-semibold">${s.encounters.toLocaleString()}</td>
+              <td class="py-3 px-4 text-right text-slate-500">${s.sharePct}%</td>
+              <td class="py-3 px-4 text-right">${s.meanLos.toFixed(2)} hrs</td>
+              <td class="py-3 px-4 text-right font-bold text-slate-900">${s.medianLos.toFixed(2)} hrs</td>
+            </tr>
+          `
+          )
+          .join('');
+
+        document.getElementById('tableDowBody').innerHTML = tables.dowData
+          .map(
+            (d) => `
+            <tr class="hover:bg-slate-50">
+              <td class="py-3 px-4 font-semibold text-slate-900">${escapeHtml(d.day)}</td>
+              <td class="py-3 px-4 text-right font-semibold">${d.encounters.toLocaleString()}</td>
+              <td class="py-3 px-4 text-right text-slate-500">${d.sharePct}%</td>
+              <td class="py-3 px-4 text-right">${d.meanLos.toFixed(2)} hrs</td>
+              <td class="py-3 px-4 text-right font-bold text-slate-900">${d.medianLos.toFixed(2)} hrs</td>
+            </tr>
+          `
+          )
+          .join('');
+
+        document.getElementById('ageChartTitle').textContent = `Age Bracket Distribution (Median: ${metrics.medianAge} yrs)`;
+        document.getElementById('tableAgeBody').innerHTML = tables.ageData
+          .map(
+            (a) => `
+            <tr class="hover:bg-slate-50">
+              <td class="py-3 px-4 font-semibold text-slate-900">${escapeHtml(a.name)}</td>
+              <td class="py-3 px-4 text-right font-semibold">${a.value.toLocaleString()}</td>
+              <td class="py-3 px-4 text-right text-slate-500">${a.sharePct}%</td>
+              <td class="py-3 px-4 text-right">${a.meanLos.toFixed(2)} hrs</td>
+              <td class="py-3 px-4 text-right font-bold text-slate-900">${a.medianLos.toFixed(2)} hrs</td>
+            </tr>
+          `
+          )
+          .join('');
+
+        document.getElementById('tableRaceBody').innerHTML = tables.raceData
+          .map(
+            (r) => `
+            <tr class="hover:bg-slate-50">
+              <td class="py-3 px-4 font-semibold text-slate-900">${escapeHtml(r.race)}</td>
+              <td class="py-3 px-4 text-right font-semibold">${r.encounters.toLocaleString()}</td>
+              <td class="py-3 px-4 text-right text-slate-500">${r.sharePct}%</td>
+              <td class="py-3 px-4 text-right font-bold text-slate-900">${r.medianLos.toFixed(2)} hrs</td>
+            </tr>
+          `
+          )
+          .join('');
+
+        document.getElementById('repeatVisitorCards').innerHTML = `
+          <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-center">
+            <div class="text-xs font-semibold text-slate-500">1 Visit Only</div>
+            <div class="text-xl font-extrabold text-slate-900 mt-1">${metrics.repeatStats.singleVisitPatients.toLocaleString()}</div>
+          </div>
+          <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
+            <div class="text-xs font-semibold text-amber-800">2 Visits</div>
+            <div class="text-xl font-extrabold text-amber-900 mt-1">${metrics.repeatStats.twoVisitPatients.toLocaleString()}</div>
+          </div>
+          <div class="bg-red-50 border border-red-200 rounded-xl p-3 text-center">
+            <div class="text-xs font-semibold text-red-800">3+ Visits (Max ${metrics.repeatStats.maxPatientVisits})</div>
+            <div class="text-xl font-extrabold text-red-900 mt-1">${metrics.repeatStats.threePlusPatients.toLocaleString()}</div>
+          </div>
+        `;
+
+        document.getElementById('tableVisitBody').innerHTML = tables.visitTypeData
+          .map(
+            (v) => `
+            <tr class="hover:bg-slate-50">
+              <td class="py-2.5 px-3 font-semibold text-slate-900">${escapeHtml(v.type)}</td>
+              <td class="py-2.5 px-3 text-right font-semibold">${v.encounters.toLocaleString()}</td>
+              <td class="py-2.5 px-3 text-right text-slate-500">${v.sharePct}%</td>
+              <td class="py-2.5 px-3 text-right font-bold text-slate-900">${v.medianLos.toFixed(2)} hrs</td>
+            </tr>
+          `
+          )
+          .join('');
+
+        // Render Dynamic Extra Columns Breakdown if present
+        const extraContainer = document.getElementById('dynamicExtraAnalyticsContainer');
+        if (tables.dynamicExtraTables && tables.dynamicExtraTables.length > 0) {
+          extraContainer.classList.remove('hidden');
+          extraContainer.innerHTML = tables.dynamicExtraTables
+            .map(
+              (tbl) => `
+              <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
+                <div class="p-4 border-b border-slate-100">
+                  <h4 class="text-sm font-bold text-slate-900">Custom Column: ${escapeHtml(tbl.column)}</h4>
+                </div>
+                <table class="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr class="bg-slate-50 text-slate-600 border-b border-slate-200">
+                      <th class="py-2 px-3 font-bold">Value</th>
+                      <th class="py-2 px-3 font-bold text-right">Count</th>
+                      <th class="py-2 px-3 font-bold text-right">Share</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100">
+                    ${tbl.rows.map((r) => `<tr><td class="py-2 px-3 font-medium text-slate-800">${escapeHtml(r.value)}</td><td class="py-2 px-3 text-right font-semibold">${r.count.toLocaleString()}</td><td class="py-2 px-3 text-right text-slate-500">${r.sharePct}%</td></tr>`).join('')}
+                  </tbody>
+                </table>
+              </div>
+            `
+            )
+            .join('');
+        } else {
+          extraContainer.classList.add('hidden');
+        }
+
+        // 5. Render Paginated PDPA-Cleaned Dataset Table
+        renderCleanedDataTable();
+      }
+
+      function renderAllCharts(charts, instantDraw = false) {
+        if (typeof Chart === 'undefined') return;
+        const isMedian = state.losMetricMode === 'median';
+        document.getElementById('chartZoneLosTitle').textContent = `${isMedian ? 'Median' : 'Mean'} Turnaround Time (Hours) by Zone`;
+        const animConfig = instantDraw ? false : { duration: 350 };
+
+        Object.keys(state.charts).forEach((k) => {
+          if (state.charts[k]) {
+            state.charts[k].destroy();
+            state.charts[k] = null;
+          }
+        });
+
+        // 1. Zone Volume Bar Chart
+        const ctxVol = document.getElementById('chartZoneVolume');
+        if (ctxVol) {
+          state.charts.zoneVolume = new Chart(ctxVol, {
+            type: 'bar',
+            data: {
+              labels: charts.zoneData.map((z) => z.shortZone),
+              datasets: [{
+                label: 'Encounters',
+                data: charts.zoneData.map((z) => z.encounters),
+                backgroundColor: charts.zoneData.map((z) => z.color),
+                borderRadius: 6
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              animation: animConfig,
+              onClick: (_, elements) => {
+                if (elements.length > 0) {
+                  const clickedZone = charts.zoneData[elements[0].index].zone;
+                  state.filters.zone = state.filters.zone === clickedZone ? 'ALL' : clickedZone;
+                  document.getElementById('filterZone').value = state.filters.zone;
+                  applyFiltersAndRender(false);
+                }
+              },
+              plugins: { legend: { display: false } },
+              scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } }
+            }
+          });
+        }
+
+        // 2. Zone LOS Bar Chart
+        const ctxLos = document.getElementById('chartZoneLos');
+        if (ctxLos) {
+          state.charts.zoneLos = new Chart(ctxLos, {
+            type: 'bar',
+            data: {
+              labels: charts.zoneData.map((z) => z.shortZone),
+              datasets: [{
+                label: isMedian ? 'Median LOS (hrs)' : 'Mean LOS (hrs)',
+                data: charts.zoneData.map((z) => (isMedian ? z.medianLos : z.meanLos)),
+                backgroundColor: charts.zoneData.map((z) => z.color),
+                borderRadius: 6
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              animation: animConfig,
+              plugins: { legend: { display: false } },
+              scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } }
+            }
+          });
+        }
+
+        // 3. 24-Hour Arrivals & LOS Combo Chart
+        const ctxHourly = document.getElementById('chartHourlyCombo');
+        if (ctxHourly) {
+          state.charts.hourlyCombo = new Chart(ctxHourly, {
+            data: {
+              labels: charts.hourlySeries.map((h) => h.label),
+              datasets: [
+                {
+                  type: 'bar',
+                  label: 'Patient Arrivals',
+                  data: charts.hourlySeries.map((h) => h.count),
+                  backgroundColor: 'rgba(59, 130, 246, 0.85)',
+                  borderRadius: 4,
+                  yAxisID: 'y'
+                },
+                {
+                  type: 'line',
+                  label: isMedian ? 'Median LOS (hrs)' : 'Mean LOS (hrs)',
+                  data: charts.hourlySeries.map((h) => (isMedian ? h.medianLos : h.meanLos)),
+                  borderColor: '#dc2626',
+                  backgroundColor: '#dc2626',
+                  borderWidth: 2.5,
+                  tension: 0.3,
+                  pointRadius: 3,
+                  yAxisID: 'y1'
+                }
+              ]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              animation: animConfig,
+              scales: {
+                y: { type: 'linear', position: 'left', beginAtZero: true, title: { display: true, text: 'Arrivals' } },
+                y1: { type: 'linear', position: 'right', beginAtZero: true, grid: { drawOnChartArea: false }, title: { display: true, text: 'LOS (Hours)' } }
+              }
+            }
+          });
+        }
+
+        // 4. Top 15 Beds Horizontal Bar Chart
+        const ctxBeds = document.getElementById('chartTopBeds');
+        if (ctxBeds && charts.topBedsData.length > 0) {
+          state.charts.topBeds = new Chart(ctxBeds, {
+            type: 'bar',
+            data: {
+              labels: charts.topBedsData.map((b) => b.bed),
+              datasets: [{
+                label: 'Encounters',
+                data: charts.topBedsData.map((b) => b.encounters),
+                backgroundColor: '#0ea5e9',
+                borderRadius: 4
+              }]
+            },
+            options: {
+              indexAxis: 'y',
+              responsive: true,
+              maintainAspectRatio: false,
+              animation: animConfig,
+              plugins: { legend: { display: false } },
+              scales: { x: { beginAtZero: true } }
+            }
+          });
+        }
+
+        // 5. Age Bracket Donut Chart
+        const ctxAge = document.getElementById('chartAgeDonut');
+        if (ctxAge) {
+          state.charts.ageDonut = new Chart(ctxAge, {
+            type: 'doughnut',
+            data: {
+              labels: charts.ageData.map((a) => a.name),
+              datasets: [{
+                data: charts.ageData.map((a) => a.value),
+                backgroundColor: charts.ageData.map((a) => a.color),
+                borderWidth: 2,
+                borderColor: '#ffffff'
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              animation: animConfig,
+              cutout: '58%',
+              onClick: (_, elements) => {
+                if (elements.length > 0) {
+                  const clickedAge = charts.ageData[elements[0].index].name;
+                  state.filters.ageGroup = state.filters.ageGroup === clickedAge ? 'ALL' : clickedAge;
+                  document.getElementById('filterAge').value = state.filters.ageGroup;
+                  applyFiltersAndRender(false);
+                }
+              },
+              plugins: { legend: { position: 'bottom' } }
+            }
+          });
+        }
+      }
+
+      function renderHeatmap(matrix, maxVal) {
+        document.getElementById('heatmapPeakLabel').textContent = `Peak (${maxVal})`;
+        const headerRow = `
+          <div class="grid grid-cols-[95px_repeat(24,minmax(24px,1fr))] gap-1 text-[10px] font-bold text-slate-500 mb-1">
+            <div>Day / Hour</div>
+            ${Array.from({ length: 24 }, (_, h) => `<div class="text-center">${String(h).padStart(2, '0')}</div>`).join('')}
+          </div>
+        `;
+
+        const bodyRows = DAYS_OF_WEEK.map((day) => {
+          const cells = matrix[day]
+            .map((val, h) => {
+              const intensity = val / (maxVal || 1);
+              let cls = 'bg-slate-50 text-slate-400';
+              if (val > 0 && intensity < 0.25) cls = 'bg-amber-100 text-amber-900';
+              else if (intensity >= 0.25 && intensity < 0.5) cls = 'bg-amber-300 text-amber-950';
+              else if (intensity >= 0.5 && intensity < 0.75) cls = 'bg-orange-500 text-white font-semibold';
+              else if (intensity >= 0.75) cls = 'bg-red-600 text-white font-bold';
+              return `<div title="${day} ${String(h).padStart(2, '0')}:00 — ${val} encounters" class="h-7 rounded flex items-center justify-center text-[10px] ${cls}">${val}</div>`;
+            })
+            .join('');
+          return `
+            <div class="grid grid-cols-[95px_repeat(24,minmax(24px,1fr))] gap-1 mb-1 items-center">
+              <div class="text-xs font-bold text-slate-700 pr-2">${day}</div>
+              ${cells}
+            </div>
+          `;
+        }).join('');
+
+        document.getElementById('heatmapContainer').innerHTML = headerRow + bodyRows;
+      }
+
+      function renderCleanedDataTable() {
+        const total = state.filteredRecords.length;
+        const totalPages = Math.max(1, Math.ceil(total / state.pageSize));
+        if (state.tablePage > totalPages) state.tablePage = totalPages;
+
+        const startIdx = (state.tablePage - 1) * state.pageSize;
+        const slice = state.filteredRecords.slice(startIdx, startIdx + state.pageSize);
+
+        document.getElementById('cleanedTableTitle').textContent = `Cleaned & PDPA-Anonymized Dataset (${total.toLocaleString()} Records)`;
+        document.getElementById('paginationInfo').textContent = total
+          ? `Showing ${startIdx + 1}–${Math.min(startIdx + state.pageSize, total)} of ${total.toLocaleString()} records`
+          : 'Showing 0 records';
+        document.getElementById('pageNumberText').textContent = `Page ${state.tablePage} of ${totalPages}`;
+        document.getElementById('btnPrevPage').disabled = state.tablePage <= 1;
+        document.getElementById('btnNextPage').disabled = state.tablePage >= totalPages;
+
+        const baseHeaders = ['Encounter Id', 'Bed No.', 'Zone', 'Encounter Date', 'Discharge Date', 'LOS (mins)', 'LOS (hrs)', 'Shift', 'Age Group', 'Visit'];
+        const allHeaders = [...baseHeaders, ...state.activeExtraHeaders];
+
+        document.getElementById('cleanedTableHead').innerHTML = `
+          <tr class="bg-slate-50 text-slate-600 border-b border-slate-200">
+            ${allHeaders.map((h) => `<th class="py-2.5 px-3 font-bold whitespace-nowrap">${escapeHtml(h)}</th>`).join('')}
+          </tr>
+        `;
+
+        document.getElementById('cleanedTableBody').innerHTML = slice
+          .map((r) => {
+            const extraCells = state.activeExtraHeaders
+              .map((h) => `<td class="py-2 px-3 text-slate-600 whitespace-nowrap">${escapeHtml(r._raw?.[h] ?? '')}</td>`)
+              .join('');
+            return `
+              <tr class="hover:bg-slate-50">
+                <td class="py-2 px-3 font-mono text-slate-800 whitespace-nowrap">${escapeHtml(r.encounterId)}</td>
+                <td class="py-2 px-3 text-slate-600 whitespace-nowrap">${escapeHtml(r.bedNo)}</td>
+                <td class="py-2 px-3 font-semibold text-slate-800 whitespace-nowrap">${escapeHtml(r.zone)}</td>
+                <td class="py-2 px-3 text-slate-600 whitespace-nowrap">${escapeHtml(r.encounterDate)}</td>
+                <td class="py-2 px-3 text-slate-600 whitespace-nowrap">${escapeHtml(r.dischargeDate)}</td>
+                <td class="py-2 px-3 text-right">${r.losMinutes.toFixed(1)}</td>
+                <td class="py-2 px-3 text-right font-bold text-slate-900">${r.losHours.toFixed(2)}</td>
+                <td class="py-2 px-3 text-slate-600 whitespace-nowrap">${escapeHtml(r.shift.split(' ')[0])}</td>
+                <td class="py-2 px-3 text-slate-600 whitespace-nowrap">${escapeHtml(r.ageGroup)}</td>
+                <td class="py-2 px-3 text-slate-600 whitespace-nowrap">${escapeHtml(r.visitType)}</td>
+                ${extraCells}
+              </tr>
+            `;
+          })
+          .join('');
+      }
+
+      // ======================================================================
+      // STEP 4: GENERATE & DOWNLOAD MULTI-PAGE PDF WITH ALL DATA & CHARTS
+      // ======================================================================
+
+      function safeCanvasImage(canvasId) {
         try {
-          const res = await fetch(state.googleSheets.appsScriptUrl, { method: 'POST', headers: {'Content-Type': 'text/plain;charset=utf-8'}, body: JSON.stringify(payload) });
-          const data = await res.json();
-          if (data.status !== 'ok') throw new Error(data.message);
-          showStatusBanner('success', `Google Sheet Tab Created: "${data.sheetName}"`, `Wrote rows successfully.`, data.spreadsheetUrl, 'Open Tab ↗');
-        } catch (err) {
-          showStatusBanner('error', 'Google Sheets Sync Failed', err.message);
+          const canvas = document.getElementById(canvasId);
+          if (!canvas || canvas.width === 0 || canvas.height === 0) return null;
+          const url = canvas.toDataURL('image/png', 1.0);
+          return url && url.startsWith('data:image/png') && url.length > 1000 ? url : null;
+        } catch {
+          return null;
         }
       }
 
       function generateAndDownloadPdf(stats, records) {
-        try {
-          const { jsPDF } = window.jspdf;
-          const doc = new jsPDF();
-          doc.setFontSize(14); doc.text('ETD Statistical Report', 14, 15);
-          if (doc.autoTable) {
-            doc.autoTable({ startY: 25, head: [['Zone', 'Encounters', 'Mean LOS']], body: stats.tables.zoneData.map(z => [z.zone, z.encounters, z.meanLos.toFixed(2)]) });
+        if (!stats || !stats.metrics || !window.jspdf || !window.jspdf.jsPDF) return null;
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 14;
+        const contentWidth = pageWidth - margin * 2;
+        const { metrics, tables, charts, sourceName } = stats;
+
+        const renderTable = (startY, head, body, columnStyles = {}) => {
+          if (typeof doc.autoTable === 'function') {
+            doc.autoTable({
+              startY,
+              head: [head],
+              body,
+              margin: { left: margin, right: margin },
+              theme: 'grid',
+              styles: { fontSize: 8, cellPadding: 2.2, textColor: [30, 41, 59], lineColor: [203, 213, 225], lineWidth: 0.2 },
+              headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold' },
+              alternateRowStyles: { fillColor: [248, 250, 252] },
+              columnStyles
+            });
+            return doc.lastAutoTable.finalY;
           }
-          const fname = `ETD_Report_${new Date().getTime()}.pdf`;
-          doc.save(fname);
-          return { filename: fname };
-        } catch (e) { console.error('PDF generation error', e); return null; }
+          return startY + 10;
+        };
+
+        // --- PAGE 1: EXECUTIVE KPIS, CLINICAL ZONES & RENDERED CHARTS ---
+        doc.setFillColor(15, 23, 42);
+        doc.rect(0, 0, pageWidth, 28, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.text('Emergency & Trauma Department (ETD) Statistical Report', margin, 11.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8.5);
+        doc.setTextColor(203, 213, 225);
+        doc.text(`Source: ${sourceName}   |   Period: ${metrics.dateRangeText}   |   Generated: ${formatDateTime(new Date())}`, margin, 19);
+        doc.text(`Google Sheet Backend ID: ${TARGET_SPREADSHEET_ID}   |   PDPA-Anonymized Report`, margin, 24.5);
+
+        let y = 34;
+        const kpis = [
+          { label: 'TOTAL ENCOUNTERS', val: metrics.totalEncounters.toLocaleString(), sub: `${metrics.uniquePatientsCount.toLocaleString()} unique patients` },
+          { label: 'MEDIAN LOS (IQR)', val: `${metrics.medianLos.toFixed(2)} hrs`, sub: `IQR: ${metrics.iqr25}–${metrics.iqr75} hrs` },
+          { label: 'MEAN LOS & VOLUME', val: `${metrics.avgLos.toFixed(2)} hrs`, sub: `${metrics.avgDailyVisits} visits/day (${metrics.uniqueBedsCount} beds)` },
+          { label: 'EXCEEDING 4 HOURS', val: `${metrics.pctOver4Hours}%`, sub: `>6h: ${metrics.pctOver6Hours}% | >12h: ${metrics.pctOver12Hours}%` }
+        ];
+        const gap = 3;
+        const cardW = (contentWidth - gap * 3) / 4;
+        kpis.forEach((k, i) => {
+          const x = margin + i * (cardW + gap);
+          doc.setFillColor(248, 250, 252);
+          doc.setDrawColor(203, 213, 225);
+          doc.roundedRect(x, y, cardW, 19, 2, 2, 'FD');
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(6.8);
+          doc.setTextColor(100, 116, 139);
+          doc.text(k.label, x + 2.8, y + 5.2);
+          doc.setFontSize(11.5);
+          doc.setTextColor(15, 23, 42);
+          doc.text(k.val, x + 2.8, y + 12);
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(6.8);
+          doc.setTextColor(71, 85, 105);
+          doc.text(k.sub, x + 2.8, y + 16.8);
+        });
+
+        y += 25;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10.5);
+        doc.setTextColor(15, 23, 42);
+        doc.text('1. Turnaround Time (LOS) & Volume by Clinical Zone', margin, y);
+
+        y = renderTable(
+          y + 3,
+          ['Clinical Zone', 'Encounters', 'Share %', 'Mean LOS', 'Median LOS', 'IQR', '% > 4 Hrs'],
+          tables.zoneData.map((z) => [z.zone, z.encounters.toLocaleString(), `${z.sharePct}%`, `${z.meanLos.toFixed(2)}h`, `${z.medianLos.toFixed(2)}h (${z.medianMins}m)`, z.iqrText, `${z.pctOver4}%`]),
+          { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' } }
+        );
+
+        // Embed Rendered Zone Charts from Dashboard
+        const imgZoneVol = safeCanvasImage('chartZoneVolume');
+        const imgZoneLos = safeCanvasImage('chartZoneLos');
+        if (imgZoneVol && imgZoneLos && y + 58 < pageHeight - 15) {
+          y += 6;
+          const halfW = (contentWidth - 4) / 2;
+          doc.addImage(imgZoneVol, 'PNG', margin, y, halfW, 50);
+          doc.addImage(imgZoneLos, 'PNG', margin + halfW + 4, y, halfW, 50);
+          y += 55;
+        }
+
+        if (y + 35 < pageHeight - 15) {
+          y += 5;
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(10.5);
+          doc.text('2. Operational Shift Performance', margin, y);
+          renderTable(
+            y + 3,
+            ['Shift Window', 'Encounters', 'Share %', 'Mean LOS (hrs)', 'Median LOS (hrs)'],
+            tables.shiftData.map((s) => [s.shift, s.encounters.toLocaleString(), `${s.sharePct}%`, s.meanLos.toFixed(2), s.medianLos.toFixed(2)]),
+            { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' } }
+          );
+        }
+
+        // --- PAGE 2: 24-HOUR PROFILE, DAY OF WEEK & DEMOGRAPHICS ---
+        doc.addPage();
+        let y2 = 16;
+        const imgHourly = safeCanvasImage('chartHourlyCombo');
+        if (imgHourly) {
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(10.5);
+          doc.setTextColor(15, 23, 42);
+          doc.text(`3. 24-Hour Arrival Profile (Peak: ${metrics.peakHourLabel} with ${metrics.peakHourCount} arrivals)`, margin, y2);
+          doc.addImage(imgHourly, 'PNG', margin, y2 + 3, contentWidth, 48);
+          y2 += 56;
+        }
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10.5);
+        doc.text(`4. Day-of-Week Surge Breakdown (Busiest Day: ${metrics.busiestDayLabel})`, margin, y2);
+        y2 = renderTable(
+          y2 + 3,
+          ['Day of Week', 'Encounters', 'Share %', 'Mean LOS (hrs)', 'Median LOS (hrs)'],
+          tables.dowData.map((d) => [d.day, d.encounters.toLocaleString(), `${d.sharePct}%`, d.meanLos.toFixed(2), d.medianLos.toFixed(2)]),
+          { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' } }
+        );
+
+        y2 += 7;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10.5);
+        doc.text(`5. Age Bracket Demographics (Median Age: ${metrics.medianAge} yrs | Mean Age: ${metrics.meanAge} yrs)`, margin, y2);
+        y2 = renderTable(
+          y2 + 3,
+          ['Age Bracket', 'Encounters', 'Share %', 'Mean LOS (hrs)', 'Median LOS (hrs)'],
+          tables.ageData.map((a) => [a.name, a.value.toLocaleString(), `${a.sharePct}%`, a.meanLos.toFixed(2), a.medianLos.toFixed(2)]),
+          { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' } }
+        );
+
+        y2 += 7;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10.5);
+        doc.text('6. Race / Citizenship Breakdown & Repeat-Visitor Audit', margin, y2);
+        renderTable(
+          y2 + 3,
+          ['Race / Status', 'Encounters', 'Share %', 'Median LOS (hrs)'],
+          tables.raceData.map((r) => [r.race, r.encounters.toLocaleString(), `${r.sharePct}%`, r.medianLos.toFixed(2)]),
+          { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' } }
+        );
+
+        // --- PAGE 3: CLEANED PDPA DATASET SAMPLE ---
+        doc.addPage();
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10.5);
+        doc.text(`7. Cleaned & PDPA-Anonymized Dataset Excerpt (First 35 of ${records.length.toLocaleString()} Records)`, margin, 16);
+        renderTable(
+          21,
+          ['Encounter Id', 'Encounter Date', 'Zone', 'LOS_mins', 'LOS_hrs', 'Shift', 'Age_Group', 'Visit'],
+          records.slice(0, 35).map((r) => [
+            String(r.encounterId),
+            r.encounterDate,
+            r.zone.replace(/\s*\([^)]*\)/, ''),
+            r.losMinutes.toFixed(1),
+            r.losHours.toFixed(2),
+            r.shift.split(' ')[0],
+            r.ageGroup.split(' ')[0],
+            r.visitType
+          ]),
+          { 3: { halign: 'right' }, 4: { halign: 'right' } }
+        );
+
+        const totalPages = doc.internal.getNumberOfPages();
+        for (let p = 1; p <= totalPages; p++) {
+          doc.setPage(p);
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8);
+          doc.setTextColor(100, 116, 139);
+          doc.text('ETD Auto-Analysis Engine — PDPA-Compliant Statistical Report', margin, pageHeight - 8);
+          doc.text(`Page ${p} of ${totalPages}`, pageWidth - margin, pageHeight - 8, { align: 'right' });
+        }
+
+        const cleanBase = sourceName.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const filename = `ETD_Statistical_Report_${cleanBase}.pdf`;
+        const blob = doc.output('blob');
+        if (state.lastPdfBlobUrl) URL.revokeObjectURL(state.lastPdfBlobUrl);
+        state.lastPdfBlobUrl = URL.createObjectURL(blob);
+        state.lastPdfFilename = filename;
+
+        try {
+          doc.save(filename);
+        } catch {
+          const link = document.createElement('a');
+          link.href = state.lastPdfBlobUrl;
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+
+        return { filename, blobUrl: state.lastPdfBlobUrl };
       }
 
-      function showStatusBanner(type, title, message, actionHref = null, actionLabel = '') {
-        const c = document.getElementById('statusBannerContainer');
-        const styles = { success: 'bg-emerald-50 border-emerald-300 text-emerald-950', info: 'bg-blue-50 border-blue-300 text-blue-950', error: 'bg-red-50 border-red-300 text-red-950' };
-        c.innerHTML = `<div class="border p-4 rounded-2xl shadow-sm ${styles[type]||styles.info}">
-          <div class="flex justify-between items-center"><h4 class="font-bold text-sm">${escapeHtml(title)}</h4>
-          ${actionHref ? `<a href="${actionHref}" target="_blank" class="px-3 py-1 bg-slate-900 text-white rounded-lg text-xs font-bold">${actionLabel}</a>` : ''}
-          </div><p class="text-xs mt-1">${escapeHtml(message)}</p></div>`;
+      // ======================================================================
+      // STEP 5: PUSH COMPLETE ANALYSIS TO A NEW GOOGLE SHEET TAB
+      // ======================================================================
+
+      function buildGoogleSheetPayload(stats, records) {
+        const { metrics, tables, charts, sourceName } = stats;
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
+        const cleanSource = sourceName.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 32);
+        const sheetName = `ETD_${stamp}_${cleanSource}`;
+
+        const rows = [];
+        const styledHeaderRows = [];
+        const pushRow = (arr, isHeader = false) => {
+          rows.push(arr);
+          if (isHeader) styledHeaderRows.push(rows.length);
+        };
+
+        pushRow([`ETD STATISTICAL ANALYSIS REPORT — ${sourceName}`]);
+        pushRow([`Generated: ${formatDateTime(now)} | Period: ${metrics.dateRangeText} | PDPA-Anonymized (Names Removed)`]);
+        pushRow([]);
+
+        pushRow(['EXECUTIVE KPI SUMMARY'], true);
+        pushRow(['Metric', 'Value', 'Benchmark / Notes'], true);
+        pushRow(['Total Encounters', metrics.totalEncounters, `${metrics.avgDailyVisits} avg visits/day across ${metrics.activeDays} active days`]);
+        pushRow(['Unique Patients', metrics.uniquePatientsCount, `${metrics.repeatStats.twoVisitPatients + metrics.repeatStats.threePlusPatients} repeat visitors`]);
+        pushRow(['Median Length of Stay (LOS)', `${metrics.medianLos} hrs`, `IQR: ${metrics.iqr25}–${metrics.iqr75} hrs`]);
+        pushRow(['Mean Length of Stay (LOS)', `${metrics.avgLos} hrs`, `Across ${metrics.uniqueBedsCount} active beds`]);
+        pushRow(['Encounters > 4 Hours', `${metrics.over4Count} (${metrics.pctOver4Hours}%)`, `>6 hrs: ${metrics.pctOver6Hours}% | >12 hrs: ${metrics.pctOver12Hours}%`]);
+        pushRow(['Peak Arrival Hour', `${metrics.peakHourLabel} (${metrics.peakHourCount} visits)`, `Busiest Day: ${metrics.busiestDayLabel} (${metrics.busiestDayCount} visits)`]);
+        pushRow(['Patient Age Summary', `Median: ${metrics.medianAge} yrs`, `Mean: ${metrics.meanAge} yrs`]);
+        pushRow([]);
+
+        pushRow(['CLINICAL ZONE PERFORMANCE'], true);
+        pushRow(['Clinical Zone', 'Encounters', 'Share %', 'Mean LOS (hrs)', 'Median LOS (hrs)', 'Median (mins)', 'IQR', '> 4 Hrs %', '> 6 Hrs %'], true);
+        tables.zoneData.forEach((z) => {
+          pushRow([z.zone, z.encounters, z.sharePct, z.meanLos, z.medianLos, z.medianMins, z.iqrText, z.pctOver4, z.pctOver6]);
+        });
+        pushRow([]);
+
+        pushRow(['OPERATIONAL SHIFT PERFORMANCE'], true);
+        pushRow(['Shift Window', 'Encounters', 'Share %', 'Mean LOS (hrs)', 'Median LOS (hrs)'], true);
+        tables.shiftData.forEach((s) => {
+          pushRow([s.shift, s.encounters, s.sharePct, s.meanLos, s.medianLos]);
+        });
+        pushRow([]);
+
+        pushRow(['DAY-OF-WEEK SURGE BREAKDOWN'], true);
+        pushRow(['Day of Week', 'Encounters', 'Share %', 'Mean LOS (hrs)', 'Median LOS (hrs)'], true);
+        tables.dowData.forEach((d) => {
+          pushRow([d.day, d.encounters, d.sharePct, d.meanLos, d.medianLos]);
+        });
+        pushRow([]);
+
+        pushRow(['24-HOUR ARRIVAL PROFILE'], true);
+        pushRow(['Hour', 'Arrivals', 'Median LOS (hrs)', 'Mean LOS (hrs)'], true);
+        charts.hourlySeries.forEach((h) => {
+          pushRow([h.label, h.count, h.medianLos, h.meanLos]);
+        });
+        pushRow([]);
+
+        pushRow(['AGE BRACKET DEMOGRAPHICS'], true);
+        pushRow(['Age Group', 'Encounters', 'Share %', 'Mean LOS (hrs)', 'Median LOS (hrs)'], true);
+        tables.ageData.forEach((a) => {
+          pushRow([a.name, a.value, a.sharePct, a.meanLos, a.medianLos]);
+        });
+        pushRow([]);
+
+        pushRow(['RACE / CITIZENSHIP BREAKDOWN'], true);
+        pushRow(['Race / Status', 'Encounters', 'Share %', 'Median LOS (hrs)'], true);
+        tables.raceData.forEach((r) => {
+          pushRow([r.race, r.encounters, r.sharePct, r.medianLos]);
+        });
+        pushRow([]);
+
+        pushRow(['CLEANED PDPA-ANONYMIZED ENCOUNTER RECORDS (PATIENT NAMES STRIPPED)'], true);
+        pushRow(['Encounter Id', 'Bed No.', 'Zone', 'Encounter Date', 'Discharge Date', 'LOS_minutes', 'LOS_hours', 'Shift', 'Day_of_Week', 'Age', 'Age_Group', 'Race', 'No_of_Visit', ...state.activeExtraHeaders], true);
+
+        const MAX_GS_ROWS = 6000;
+        const slice = records.slice(0, MAX_GS_ROWS);
+        slice.forEach((r) => {
+          pushRow([
+            r.encounterId,
+            r.bedNo,
+            r.zone,
+            r.encounterDate,
+            r.dischargeDate,
+            r.losMinutes,
+            r.losHours,
+            r.shift,
+            r.dayOfWeek,
+            r.age !== null ? r.age : '',
+            r.ageGroup,
+            r.race,
+            r.visitType,
+            ...state.activeExtraHeaders.map((h) => r._raw?.[h] ?? '')
+          ]);
+        });
+
+        return { sheetName, rows, styledHeaderRows };
       }
 
-      function applyFiltersAndRender() {
-        state.filteredRecords = state.allCleanedRecords.filter(r => (state.filters.zone === 'ALL' || r.zone === state.filters.zone));
-        state.stats = computeEtdStatistics(state.filteredRecords, state.sourceName);
-        
-        // Render UI
-        document.getElementById('kpiGrid').innerHTML = `
-          <div class="bg-white rounded-2xl border p-4 shadow-sm"><div class="text-xs font-bold text-slate-500">ENCOUNTERS</div><div class="text-2xl font-extrabold mt-1">${state.stats.metrics.totalEncounters}</div></div>
-          <div class="bg-white rounded-2xl border p-4 shadow-sm"><div class="text-xs font-bold text-slate-500">LOS > 4 HOURS</div><div class="text-2xl font-extrabold text-red-600 mt-1">${state.stats.metrics.pctOver4Hours}%</div></div>
-        `;
-        document.getElementById('tableZoneBody').innerHTML = state.stats.tables.zoneData.map(z => `
-          <tr class="hover:bg-slate-50"><td class="py-2 px-3 font-semibold">${z.zone}</td><td class="py-2 px-3 text-right">${z.encounters}</td>
-          <td class="py-2 px-3 text-right">${z.meanLos.toFixed(2)}</td><td class="py-2 px-3 text-right">${z.medianLos.toFixed(2)}</td>
-          <td class="py-2 px-3 text-right text-red-600 font-bold">${z.pctOver4}%</td></tr>`).join('');
-          
-        // Dynamic Table Render
-        const extraHeaders = state.availableHeaders.filter(h => !Object.values(state.columnMapping).includes(h));
-        const allHeaders = ['Encounter Id', 'Zone', 'LOS (hrs)', 'Age', ...extraHeaders];
-        document.getElementById('cleanedTableHead').innerHTML = `<tr class="bg-slate-50 text-slate-600 border-b">${allHeaders.map(h => `<th class="py-2 px-3 font-bold">${escapeHtml(h)}</th>`).join('')}</tr>`;
-        document.getElementById('cleanedTableBody').innerHTML = state.filteredRecords.slice(0, 20).map(r => `
-          <tr class="hover:bg-slate-50">${[r.encounterId, r.zone, r.losHours.toFixed(2), r.age ?? '', ...extraHeaders.map(h => r._raw[h] ?? '')].map(v => `<td class="py-2 px-3">${escapeHtml(v)}</td>`).join('')}</tr>
-        `).join('');
+      async function pushAnalysisToGoogleSheet(stats, records, pdfInfo = null) {
+        const url = state.googleSheets.appsScriptUrl.trim();
+        if (!url || !stats) return null;
+
+        const payload = buildGoogleSheetPayload(stats, records);
+        showStatusBanner(
+          'info',
+          'Step 5 of 5: Saving Analysis to Google Sheets...',
+          `Creating new sheet tab "${payload.sheetName}" inside spreadsheet ${TARGET_SPREADSHEET_ID}...`,
+          95
+        );
+        await nextPaintFrame();
+
+        try {
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(payload)
+          });
+          const data = await response.json();
+          if (data.status !== 'ok') throw new Error(data.message || 'Apps Script returned an error.');
+
+          const actions = [];
+          if (pdfInfo) {
+            actions.push({ label: 'Download / Open PDF Report ↗', href: pdfInfo.blobUrl, primary: false });
+          }
+          actions.push({ label: 'Open New Google Sheet Tab ↗', href: data.spreadsheetUrl || TARGET_SPREADSHEET_URL, primary: true });
+
+          showStatusBanner(
+            'success',
+            `All Done! Analyzed ${records.length.toLocaleString()} Encounters, Downloaded PDF & Created Sheet "${data.sheetName}"`,
+            `Wrote ${data.rowsWritten.toLocaleString()} rows of KPI summaries, pivot tables, and PDPA-cleaned data into your Google Sheet.`,
+            null,
+            actions
+          );
+          refreshRemoteSheetList();
+          return data;
+        } catch (err) {
+          const actions = pdfInfo ? [{ label: 'Open Downloaded PDF ↗', href: pdfInfo.blobUrl, primary: true }] : [];
+          showStatusBanner(
+            'warning',
+            'Analysis & PDF Complete (Google Sheet Sync Warning)',
+            `PDF "${pdfInfo?.filename || ''}" was created and downloaded, but Google Sheets returned: ${err.message}`,
+            null,
+            actions
+          );
+          return null;
+        }
       }
+
+      async function refreshRemoteSheetList() {
+        const url = state.googleSheets.appsScriptUrl.trim();
+        const selectEl = document.getElementById('remoteSheetSelect');
+        const hintEl = document.getElementById('remoteSheetsHint');
+        if (!url) return;
+
+        try {
+          const res = await fetch(`${url}${url.includes('?') ? '&' : '?'}action=list`);
+          const json = await res.json();
+          if (json.status !== 'ok') throw new Error(json.message || 'Unable to list tabs.');
+          const sheetNames = (json.sheets || []).map((s) => s.name);
+          state.googleSheets.remoteSheets = sheetNames;
+          selectEl.innerHTML = sheetNames.length
+            ? sheetNames.map((n) => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('')
+            : '<option value="">-- No tabs found --</option>';
+          hintEl.textContent = `Connected! Found ${sheetNames.length} tab(s) in spreadsheet ${TARGET_SPREADSHEET_ID}.`;
+        } catch (err) {
+          hintEl.textContent = `Could not fetch remote tabs: ${err.message}`;
+        }
+      }
+
+      async function loadRemoteSheetIntoDashboard(sheetName) {
+        const url = state.googleSheets.appsScriptUrl.trim();
+        if (!url || !sheetName) return;
+
+        showStatusBanner('info', `Loading "${sheetName}" from Google Sheets...`, 'Fetching stored rows and reconstructing charts & tables...', 50);
+        await nextPaintFrame();
+
+        try {
+          const res = await fetch(`${url}${url.includes('?') ? '&' : '?'}action=read&sheet=${encodeURIComponent(sheetName)}`);
+          const json = await res.json();
+          if (json.status !== 'ok') throw new Error(json.message || 'Failed to read remote tab.');
+
+          const ws = XLSX.utils.aoa_to_sheet(json.values || []);
+          const extracted = extractSheetTableAndMapping(ws);
+          if (!extracted.records.length) throw new Error(`No encounter records found inside "${sheetName}".`);
+
+          state.workbookSheets = { [sheetName]: extracted };
+          state.activeSheet = sheetName;
+          state.sourceName = `GoogleSheet_${sheetName}`;
+          state.rawRecords = extracted.records;
+          state.availableHeaders = extracted.headers;
+          state.columnMapping = extracted.mapping;
+          state.activeExtraHeaders = detectActiveExtraHeaders(extracted.headers, extracted.mapping, extracted.records);
+          resetAllFilters();
+
+          document.getElementById('headerFileName').textContent = state.sourceName;
+          renderColumnMapper();
+          state.allCleanedRecords = normalizeEtdRecords(state.rawRecords, state.columnMapping);
+          populateFilterDropdowns();
+          applyFiltersAndRender(true);
+
+          showStatusBanner('success', `Loaded "${sheetName}" from Google Sheets`, `Reconstructed dashboard for ${state.allCleanedRecords.length.toLocaleString()} records.`);
+        } catch (err) {
+          showStatusBanner('error', 'Failed to Load Remote Sheet', err.message);
+        }
+      }
+
+      // ======================================================================
+      // MASTER UPLOAD WORKFLOW: ANALYZE FIRST -> RENDER ALL -> CREATE PDF -> SYNC
+      // ======================================================================
 
       async function handleFileUpload(file) {
         if (!file) return;
-        showStatusBanner('info', `Analyzing "${file.name}"...`, 'Extracting data, parsing dates, and building analytical models. Please wait...');
-        await new Promise(r => setTimeout(r, 80)); // Yield to allow UI update
+        if (typeof XLSX === 'undefined') {
+          showStatusBanner('error', 'Parser Still Loading', 'Please wait 2 seconds for SheetJS to finish loading and try again.');
+          return;
+        }
+
+        // STEP 1: Read Excel Workbook & Detect Schema
+        showStatusBanner('info', `Step 1 of 5: Reading "${file.name}"...`, 'Scanning worksheets, detecting headers, and mapping columns...', 15);
+        await nextPaintFrame();
 
         try {
           const buffer = await file.arrayBuffer();
           const workbook = XLSX.read(new Uint8Array(buffer), { type: 'array', cellDates: true });
-          const sheetName = workbook.SheetNames[0];
-          const extracted = extractSheetTableAndMapping(workbook.Sheets[sheetName]);
-          
-          if (!extracted.records.length) throw new Error('No valid tabular patient records found.');
+          if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+            throw new Error('The uploaded workbook contains no sheets.');
+          }
 
+          const parsedSheets = {};
+          let bestSheet = workbook.SheetNames[0];
+          let maxRows = -1;
+
+          workbook.SheetNames.forEach((name) => {
+            const extracted = extractSheetTableAndMapping(workbook.Sheets[name]);
+            parsedSheets[name] = extracted;
+            if (extracted.records.length > maxRows) {
+              maxRows = extracted.records.length;
+              bestSheet = name;
+            }
+          });
+
+          const chosen = parsedSheets[bestSheet];
+          if (!chosen || chosen.records.length === 0) {
+            throw new Error('No valid tabular patient records were found in the uploaded file.');
+          }
+
+          state.workbookSheets = parsedSheets;
+          state.activeSheet = bestSheet;
           state.sourceName = file.name;
-          state.rawRecords = extracted.records;
-          state.availableHeaders = extracted.headers;
-          state.columnMapping = extracted.mapping;
-          
-          state.allCleanedRecords = normalizeEtdRecords(state.rawRecords, state.columnMapping);
-          if (!state.allCleanedRecords.length) throw new Error('Column matching failed entirely. Please map columns manually.');
+          state.rawRecords = chosen.records;
+          state.availableHeaders = chosen.headers;
+          state.columnMapping = chosen.mapping;
+          state.activeExtraHeaders = detectActiveExtraHeaders(chosen.headers, chosen.mapping, chosen.records);
+          resetAllFilters();
+
+          // Update sheet dropdown if multiple sheets exist
+          const sheetSel = document.getElementById('sheetSelector');
+          if (workbook.SheetNames.length > 1) {
+            sheetSel.classList.remove('hidden');
+            sheetSel.innerHTML = workbook.SheetNames
+              .map((s) => `<option value="${escapeHtml(s)}" ${s === bestSheet ? 'selected' : ''}>Sheet: ${escapeHtml(s)} (${parsedSheets[s].records.length})</option>`)
+              .join('');
+          } else {
+            sheetSel.classList.add('hidden');
+          }
+
+          // STEP 2: Normalize Timestamps & Compute Statistical Matrices
+          showStatusBanner('info', `Step 2 of 5: Computing Statistics for ${chosen.records.length.toLocaleString()} Rows...`, 'Calculating turnaround times (LOS), clinical zones, shifts, demographics, and PDPA anonymization...', 45);
+          await nextPaintFrame();
 
           document.getElementById('headerFileName').textContent = file.name;
-          applyFiltersAndRender();
-          
-          generateAndDownloadPdf(state.stats, state.allCleanedRecords);
-          pushAnalysisToGoogleSheet(state.stats, state.allCleanedRecords);
+          renderColumnMapper();
+          state.allCleanedRecords = normalizeEtdRecords(state.rawRecords, state.columnMapping);
 
+          if (state.allCleanedRecords.length === 0) {
+            document.getElementById('columnMapperPanel').classList.remove('hidden');
+            throw new Error('Rows were found, but Encounter Date / Bed No. columns could not be matched automatically. Please verify the Columns drawer above.');
+          }
+
+          // STEP 3: Render ALL Dashboard Data, Tables, Heatmap & Charts FIRST
+          showStatusBanner('info', 'Step 3 of 5: Rendering All Tables, Heatmaps & Charts on Screen...', 'Populating dashboard metrics before generating the PDF report...', 70);
+          await nextPaintFrame();
+
+          populateFilterDropdowns();
+          applyFiltersAndRender(true); // instantDraw = true draws all Chart.js canvases immediately without animation delay
+          await nextPaintFrame(); // Wait for browser to visibly paint all dashboard data & charts first!
+
+          // STEP 4: Generate & Download Multi-Page PDF Report
+          showStatusBanner('info', 'Step 4 of 5: Creating & Downloading Multi-Page PDF Report...', 'Embedding rendered charts, pivot tables, and PDPA-cleaned records into PDF...', 85);
+          await nextPaintFrame();
+
+          const pdfInfo = generateAndDownloadPdf(state.stats, state.allCleanedRecords);
+
+          // STEP 5: Push Full Analysis to a New Google Sheet Tab
+          if (state.googleSheets.autoSync && state.googleSheets.appsScriptUrl.trim()) {
+            await pushAnalysisToGoogleSheet(state.stats, state.allCleanedRecords, pdfInfo);
+          } else {
+            const actions = pdfInfo ? [{ label: 'Open / Re-Download PDF ↗', href: pdfInfo.blobUrl, primary: true }] : [];
+            showStatusBanner(
+              'success',
+              `Analysis Complete (${state.allCleanedRecords.length.toLocaleString()} Encounters) & PDF Downloaded!`,
+              `All dashboard tables and charts are populated above, and "${pdfInfo?.filename || 'ETD_Report.pdf'}" has been generated.`,
+              null,
+              actions
+            );
+          }
         } catch (err) {
-          showStatusBanner('error', 'Excel Upload Failed', err.message);
+          console.error(err);
+          showStatusBanner('error', 'Excel Auto-Analysis Error', err.message || 'Unable to process the uploaded Excel file.');
         }
+      }
+
+      // ======================================================================
+      // DEMO DATA & INITIALIZATION
+      // ======================================================================
+
+      function generateDemoData() {
+        const rows = [];
+        const zones = [
+          { prefix: 'ETD-GZ1', weight: 54, avgLos: 2.9 },
+          { prefix: 'ETD-YZLR1', weight: 16, avgLos: 4.6 },
+          { prefix: 'ETD-OBZ', weight: 14, avgLos: 5.1 },
+          { prefix: 'ETD-ASB1-HR', weight: 8, avgLos: 1.9 },
+          { prefix: 'ETD-RZLR1', weight: 8, avgLos: 5.2 }
+        ];
+        const races = ['MELAYU', 'MELAYU', 'MELAYU', 'MELAYU', 'LAIN-LAIN', 'CINA', 'INDIA', 'BUKAN WARGANEGARA'];
+        const baseDate = new Date(2026, 9, 31, 23, 45, 0);
+
+        for (let i = 0; i < 2248; i++) {
+          const r = Math.random() * 100;
+          let cum = 0;
+          let chosen = zones[0];
+          for (const z of zones) {
+            cum += z.weight;
+            if (r <= cum) { chosen = z; break; }
+          }
+
+          const daysAgo = Math.floor(Math.random() * 31);
+          const hrRoll = Math.random();
+          let hour = Math.floor(Math.random() * 24);
+          if (hrRoll < 0.35) hour = 17 + Math.floor(Math.random() * 5);
+          else if (hrRoll < 0.65) hour = 9 + Math.floor(Math.random() * 4);
+
+          const encDate = new Date(baseDate);
+          encDate.setDate(baseDate.getDate() - daysAgo);
+          encDate.setHours(hour, Math.floor(Math.random() * 60), Math.floor(Math.random() * 60));
+
+          const losHours = Math.max(0.25, chosen.avgLos + (Math.random() * 3.4 - 1.4));
+          const disDate = new Date(encDate.getTime() + Math.round(losHours * 3600 * 1000));
+
+          const ageRoll = Math.random();
+          let age = 28;
+          if (ageRoll < 0.25) age = Math.floor(Math.random() * 12);
+          else if (ageRoll < 0.38) age = 12 + Math.floor(Math.random() * 6);
+          else if (ageRoll < 0.64) age = 18 + Math.floor(Math.random() * 22);
+          else if (ageRoll < 0.82) age = 40 + Math.floor(Math.random() * 20);
+          else age = 60 + Math.floor(Math.random() * 32);
+
+          rows.push({
+            'Encounter Id': `HKNR-ENC-${2600043140 + i}`,
+            'Bed No.': `${chosen.prefix}-00${(i % 7) + 1}`,
+            'Patient Name': `DEMO PATIENT ${(i % 2003) + 1}`,
+            'Age': age,
+            'Race': races[i % races.length],
+            'Encounter Date': encDate,
+            'Discharge Date': disDate,
+            'No. of Visit': i % 10 === 0 ? 'FOLLOW UP' : '1ST TIME'
+          });
+        }
+
+        const headers = ['Encounter Id', 'Bed No.', 'Patient Name', 'Age', 'Race', 'Encounter Date', 'Discharge Date', 'No. of Visit'];
+        const mapping = {
+          encounterId: 'Encounter Id',
+          bedNo: 'Bed No.',
+          patientName: 'Patient Name',
+          age: 'Age',
+          race: 'Race',
+          encounterDate: 'Encounter Date',
+          dischargeDate: 'Discharge Date',
+          visitType: 'No. of Visit'
+        };
+
+        state.workbookSheets = { Sheet1: { headers, records: rows, mapping } };
+        state.activeSheet = 'Sheet1';
+        state.sourceName = 'Demo_ETD_Oct2026.xlsx';
+        state.rawRecords = rows;
+        state.availableHeaders = headers;
+        state.columnMapping = mapping;
+        state.activeExtraHeaders = [];
+        resetAllFilters();
+
+        document.getElementById('headerFileName').textContent = state.sourceName;
+        renderColumnMapper();
+        state.allCleanedRecords = normalizeEtdRecords(rows, mapping);
+        populateFilterDropdowns();
+        applyFiltersAndRender(true);
       }
 
       document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('appsScriptUrlInput').value = DEFAULT_APPS_SCRIPT_URL;
-        document.getElementById('excelFileInput').addEventListener('change', (e) => handleFileUpload(e.target.files?.[0]));
-        document.getElementById('btnToggleSheetsPanel').addEventListener('click', () => document.getElementById('googleSheetsPanel').classList.toggle('hidden'));
-        document.getElementById('btnToggleMapper').addEventListener('click', () => document.getElementById('columnMapperPanel').classList.toggle('hidden'));
-        document.getElementById('btnSyncNow').addEventListener('click', () => pushAnalysisToGoogleSheet(state.stats, state.filteredRecords));
-        document.getElementById('btnExportCsv').addEventListener('click', () => {
-           if(!state.filteredRecords.length) return;
-           const extraHeaders = state.availableHeaders.filter(h => !Object.values(state.columnMapping).includes(h));
-           const headers = ['Encounter Id', 'Zone', 'LOS (hrs)', 'Age', ...extraHeaders];
-           const csv = [headers.join(','), ...state.filteredRecords.map(r => [r.encounterId, r.zone, r.losHours, r.age ?? '', ...extraHeaders.map(h => r._raw[h] ?? '')].map(v => `"${String(v).replace(/"/g,'""')}"`).join(','))].join('\n');
-           const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv])); a.download = 'Export.csv'; a.click();
+        refreshRemoteSheetList();
+
+        // File upload & drag-drop
+        document.getElementById('excelFileInput').addEventListener('change', (e) => {
+          const f = e.target.files?.[0];
+          if (f) handleFileUpload(f);
+          e.target.value = '';
         });
+
+        window.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          document.getElementById('dragOverlay').classList.remove('hidden');
+        });
+        window.addEventListener('dragleave', (e) => {
+          if (e.relatedTarget === null) document.getElementById('dragOverlay').classList.add('hidden');
+        });
+        window.addEventListener('drop', (e) => {
+          e.preventDefault();
+          document.getElementById('dragOverlay').classList.add('hidden');
+          const f = e.dataTransfer?.files?.[0];
+          if (f) handleFileUpload(f);
+        });
+
+        // Sheet switcher
+        document.getElementById('sheetSelector').addEventListener('change', (e) => {
+          const sh = state.workbookSheets[e.target.value];
+          if (!sh) return;
+          state.activeSheet = e.target.value;
+          state.rawRecords = sh.records;
+          state.availableHeaders = sh.headers;
+          state.columnMapping = sh.mapping;
+          state.activeExtraHeaders = detectActiveExtraHeaders(sh.headers, sh.mapping, sh.records);
+          resetAllFilters();
+          renderColumnMapper();
+          state.allCleanedRecords = normalizeEtdRecords(sh.records, sh.mapping);
+          populateFilterDropdowns();
+          applyFiltersAndRender(true);
+        });
+
+        // Toolbar toggles
+        document.getElementById('btnToggleSheetsPanel').addEventListener('click', () => {
+          document.getElementById('googleSheetsPanel').classList.toggle('hidden');
+        });
+        document.getElementById('btnToggleMapper').addEventListener('click', () => {
+          document.getElementById('columnMapperPanel').classList.toggle('hidden');
+        });
+        document.getElementById('btnLoadDemo').addEventListener('click', () => {
+          generateDemoData();
+          showStatusBanner('info', 'Demo Dataset Loaded', 'Upload your Excel file to run the full auto-analysis, generate & download the PDF report, and save a new Google Sheet tab.');
+        });
+        document.getElementById('btnManualPdf').addEventListener('click', () => {
+          if (!state.stats) return;
+          const pdf = generateAndDownloadPdf(state.stats, state.filteredRecords);
+          if (pdf) {
+            showStatusBanner('success', 'PDF Report Exported', `Downloaded "${pdf.filename}".`, null, [
+              { label: 'Open / Re-Download PDF ↗', href: pdf.blobUrl, primary: true }
+            ]);
+          }
+        });
+
+        // Apply manual column mapping
+        document.getElementById('btnApplyMapping').addEventListener('click', () => {
+          document.querySelectorAll('.map-select').forEach((sel) => {
+            state.columnMapping[sel.getAttribute('data-map-key')] = sel.value;
+          });
+          state.activeExtraHeaders = detectActiveExtraHeaders(state.availableHeaders, state.columnMapping, state.rawRecords);
+          state.allCleanedRecords = normalizeEtdRecords(state.rawRecords, state.columnMapping);
+          populateFilterDropdowns();
+          applyFiltersAndRender(true);
+          showStatusBanner('success', 'Column Mapping Applied', 'Recalculated all metrics & tables using your updated column mapping.');
+        });
+
+        // Google Sheets actions
+        document.getElementById('btnConnectAppsScript').addEventListener('click', () => {
+          state.googleSheets.appsScriptUrl = document.getElementById('appsScriptUrlInput').value.trim();
+          refreshRemoteSheetList();
+        });
+        document.getElementById('autoSyncCheckbox').addEventListener('change', (e) => {
+          state.googleSheets.autoSync = e.target.checked;
+        });
+        document.getElementById('btnSyncNow').addEventListener('click', () => {
+          state.googleSheets.appsScriptUrl = document.getElementById('appsScriptUrlInput').value.trim();
+          if (state.stats) pushAnalysisToGoogleSheet(state.stats, state.filteredRecords);
+        });
+        document.getElementById('btnLoadRemoteSheet').addEventListener('click', () => {
+          const tab = document.getElementById('remoteSheetSelect').value;
+          if (tab) loadRemoteSheetIntoDashboard(tab);
+        });
+
+        // Filters & Metric toggle
+        document.getElementById('filterZone').addEventListener('change', (e) => { state.filters.zone = e.target.value; state.tablePage = 1; applyFiltersAndRender(false); });
+        document.getElementById('filterShift').addEventListener('change', (e) => { state.filters.shift = e.target.value; state.tablePage = 1; applyFiltersAndRender(false); });
+        document.getElementById('filterAge').addEventListener('change', (e) => { state.filters.ageGroup = e.target.value; state.tablePage = 1; applyFiltersAndRender(false); });
+        document.getElementById('filterVisit').addEventListener('change', (e) => { state.filters.visitType = e.target.value; state.tablePage = 1; applyFiltersAndRender(false); });
+        document.getElementById('filterSearch').addEventListener('input', (e) => { state.filters.search = e.target.value; state.tablePage = 1; applyFiltersAndRender(false); });
+        document.getElementById('btnResetFilters').addEventListener('click', () => {
+          resetAllFilters();
+          populateFilterDropdowns();
+          applyFiltersAndRender(false);
+        });
+
+        document.getElementById('btnLosMedian').addEventListener('click', () => {
+          state.losMetricMode = 'median';
+          document.getElementById('btnLosMedian').className = 'px-3 py-1 rounded-lg font-bold bg-white text-slate-900 shadow-sm transition-colors';
+          document.getElementById('btnLosMean').className = 'px-3 py-1 rounded-lg font-bold text-slate-600 transition-colors';
+          renderAllDashboardVisuals(false);
+        });
+        document.getElementById('btnLosMean').addEventListener('click', () => {
+          state.losMetricMode = 'mean';
+          document.getElementById('btnLosMean').className = 'px-3 py-1 rounded-lg font-bold bg-white text-slate-900 shadow-sm transition-colors';
+          document.getElementById('btnLosMedian').className = 'px-3 py-1 rounded-lg font-bold text-slate-600 transition-colors';
+          renderAllDashboardVisuals(false);
+        });
+
+        // Tabs (with Chart.js resize on hidden tabs)
+        document.querySelectorAll('.tab-btn').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const target = btn.getAttribute('data-tab');
+            state.activeTab = target;
+            document.querySelectorAll('.tab-btn').forEach((b) => {
+              b.className = b === btn
+                ? 'tab-btn flex-1 min-w-[160px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold bg-slate-900 text-white shadow-sm transition-all'
+                : 'tab-btn flex-1 min-w-[160px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-slate-100 transition-all';
+            });
+            document.querySelectorAll('.tab-panel').forEach((panel) => {
+              panel.classList.toggle('hidden', panel.id !== `tab-${target}`);
+            });
+            Object.values(state.charts).forEach((ch) => { if (ch) ch.resize(); });
+          });
+        });
+
+        // Pagination & Data Exports
+        document.getElementById('btnPrevPage').addEventListener('click', () => {
+          if (state.tablePage > 1) { state.tablePage--; renderCleanedDataTable(); }
+        });
+        document.getElementById('btnNextPage').addEventListener('click', () => {
+          const maxPages = Math.max(1, Math.ceil(state.filteredRecords.length / state.pageSize));
+          if (state.tablePage < maxPages) { state.tablePage++; renderCleanedDataTable(); }
+        });
+
+        document.getElementById('btnExportCsv').addEventListener('click', () => {
+          if (!state.filteredRecords.length) return;
+          const headers = ['Encounter Id', 'Bed No.', 'Zone', 'Encounter Date', 'Discharge Date', 'LOS_minutes', 'LOS_hours', 'Shift', 'Day_of_Week', 'Age', 'Age_Group', 'Race', 'No_of_Visit', ...state.activeExtraHeaders];
+          const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+          const lines = [
+            headers.join(','),
+            ...state.filteredRecords.map((r) => [
+              r.encounterId, r.bedNo, r.zone, r.encounterDate, r.dischargeDate, r.losMinutes, r.losHours, r.shift, r.dayOfWeek, r.age ?? '', r.ageGroup, r.race, r.visitType,
+              ...state.activeExtraHeaders.map((h) => r._raw?.[h] ?? '')
+            ].map(esc).join(','))
+          ];
+          const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `PDPA_Cleaned_${state.sourceName.replace(/\.[^/.]+$/, '')}.csv`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 5000);
+        });
+
+        document.getElementById('btnExportXlsx').addEventListener('click', () => {
+          if (!state.stats || typeof XLSX === 'undefined') return;
+          const payload = buildGoogleSheetPayload(state.stats, state.filteredRecords);
+          const wb = XLSX.utils.book_new();
+          const wsSummary = XLSX.utils.aoa_to_sheet(payload.rows);
+          XLSX.utils.book_append_sheet(wb, wsSummary, payload.sheetName.slice(0, 31));
+          XLSX.writeFile(wb, `ETD_Analysis_${state.sourceName.replace(/\.[^/.]+$/, '')}.xlsx`);
+        });
+
+        // Initialize with Demo Data so all charts & tables are immediately ready
+        generateDemoData();
       });
     })();
   </script>
