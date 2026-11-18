@@ -61,7 +61,7 @@
       </div>
       <h3 class="text-xl font-bold text-slate-900">Drop Excel Form to Stage File</h3>
       <p class="text-sm text-slate-500 mt-1.5">
-        Your file will be loaded and ready—then click <strong>Start Full Analysis</strong> to compute all data, download PDF, and save to Google Sheets.
+        Your file will be loaded and ready—then click <strong>2. Start Full Analysis</strong> to compute all data, download PDF, and save to Google Sheets.
       </p>
     </div>
   </div>
@@ -248,14 +248,14 @@
         <div>
           <h3 class="font-bold text-sm text-slate-900">Detected Schema &amp; Dynamic Extra Columns</h3>
           <p id="extraColsSummary" class="text-xs text-slate-500">
-            All non-empty extra columns in your Excel file are automatically analyzed and preserved in exports.
+            Verify or adjust column assignments below. Any extra populated columns are automatically preserved and analyzed.
           </p>
         </div>
         <button id="btnApplyMapping" type="button" class="text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-xl">
           Save Mapping &amp; Re-Analyze
         </button>
       </div>
-      <div id="mappingSelectGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
+      <div id="mappingSelectGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3"></div>
     </section>
 
     <!-- Empty-State Placeholder Before Analysis Starts -->
@@ -265,13 +265,13 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
         </svg>
       </div>
-      <h2 class="text-lg font-extrabold text-slate-900">Upload Your Excel Form &amp; Push "Start Full Analysis"</h2>
+      <h2 class="text-lg font-extrabold text-slate-900">Upload Your Excel Form &amp; Push "2. Start Full Analysis"</h2>
       <p class="text-xs sm:text-sm text-slate-500 max-w-xl mx-auto">
-        Once you upload an Excel spreadsheet and click <strong>2. Start Full Analysis</strong>, this dashboard will compute turnaround times, clinical zones, 24-hour &amp; weekly surge heatmaps, daily trends, bed turnover, demographics, repeat-visitor audits, and any custom columns—then automatically generate your PDF report and create a new sheet tab in Google Sheets.
+        Once you upload an Excel spreadsheet and click <strong>2. Start Full Analysis</strong>, this dashboard will compute Mean LOS, Median LOS, IQR (25–75%), &gt;4h / &gt;6h breach rates, clinical zones, 24-hour &amp; weekly surge heatmaps, daily trends, bed turnover, demographics, repeat-visitor audits, and any custom columns—then automatically generate your PDF report and create a new sheet tab in Google Sheets.
       </p>
     </section>
 
-    <!-- FULL ANALYTICAL DASHBOARD WORKSPACE (Hidden until Start Full Analysis is pushed) -->
+    <!-- FULL ANALYTICAL DASHBOARD WORKSPACE -->
     <div id="analysisWorkspace" class="hidden space-y-5">
 
       <!-- Interactive Slice & Filter Controls -->
@@ -371,7 +371,7 @@
         <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
           <div class="p-5 border-b border-slate-100">
             <h3 class="text-base font-bold text-slate-900">Clinical Zone Performance Matrix</h3>
-            <p class="text-xs text-slate-500">Full turnaround distribution (Mean, Median, SD, IQR, Min–Max) and 4h / 6h / 12h breach rates.</p>
+            <p class="text-xs text-slate-500">Full turnaround distribution (Mean LOS, Median LOS, IQR 25–75%, Min–Max) and &gt;4h / &gt;6h breach rates.</p>
           </div>
           <table class="w-full text-left border-collapse text-xs sm:text-sm">
             <thead>
@@ -551,6 +551,12 @@
       const FALLBACK_PALETTE = ['#0ea5e9', '#14b8a6', '#f97316', '#ec4899', '#6366f1', '#84cc16'];
       const AGE_COLORS = ['#38bdf8', '#818cf8', '#a78bfa', '#f472b6', '#fb7185', '#94a3b8'];
       const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      const MONTH_NAMES = {
+        jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3, apr: 4, april: 4,
+        may: 5, jun: 6, june: 6, jul: 7, july: 7, aug: 8, august: 8,
+        sep: 9, sept: 9, september: 9, oct: 10, oktober: 10, october: 10,
+        nov: 11, november: 11, dec: 12, dis: 12, december: 12
+      };
 
       const state = {
         isStaged: false,
@@ -596,43 +602,58 @@
         return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
       }
 
+      // ======================================================================
+      // BULLETPROOF MULTI-FORMAT DATE, TIME & DURATION PARSER
+      // ======================================================================
+
       function parseFlexibleDate(val) {
         if (val === null || val === undefined || val === '') return null;
         if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
 
-        if (typeof val === 'number' && isFinite(val) && val > 10000) {
+        // 1. Numeric Excel Serial Timestamp (use SheetJS SSF.parse_date_code for exact local calendar fields)
+        if (typeof val === 'number' && isFinite(val) && val > 1000) {
+          if (typeof XLSX !== 'undefined' && XLSX.SSF && typeof XLSX.SSF.parse_date_code === 'function') {
+            const p = XLSX.SSF.parse_date_code(val);
+            if (p && p.y >= 1900 && p.m >= 1 && p.d >= 1) {
+              const dt = new Date(p.y, p.m - 1, p.d, p.H || 0, p.M || 0, p.S || 0);
+              if (!isNaN(dt.getTime())) return dt;
+            }
+          }
           const d = new Date(Math.round((val - 25569) * 86400 * 1000));
           return isNaN(d.getTime()) ? null : d;
         }
 
         if (typeof val === 'string') {
-          const trimmed = val.trim().replace(/,/g, '');
+          const trimmed = val.trim().replace(/,/g, ' ').replace(/\s+/g, ' ');
           if (!trimmed) return null;
 
+          // Numeric string serial
           if (/^\d{5}(\.\d+)?$/.test(trimmed)) {
-            const d = new Date(Math.round((parseFloat(trimmed) - 25569) * 86400 * 1000));
-            return isNaN(d.getTime()) ? null : d;
+            return parseFlexibleDate(parseFloat(trimmed));
           }
 
-          // ISO YYYY-MM-DD HH:mm:ss(.SSS)
+          // 2. ISO YYYY-MM-DD[T ]HH:mm[:ss[.SSS]][Z]
           const isoMatch = trimmed.match(
-            /^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})(?:[T\s]+(\d{1,2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?)?$/
+            /^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})(?:[T\s]+(\d{1,2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?\s*(AM|PM|Z)?)?$/i
           );
           if (isoMatch) {
             const year = parseInt(isoMatch[1], 10);
             const month = parseInt(isoMatch[2], 10);
             const day = parseInt(isoMatch[3], 10);
-            const hour = isoMatch[4] ? parseInt(isoMatch[4], 10) : 0;
+            let hour = isoMatch[4] ? parseInt(isoMatch[4], 10) : 0;
             const minute = isoMatch[5] ? parseInt(isoMatch[5], 10) : 0;
             const second = isoMatch[6] ? parseInt(isoMatch[6], 10) : 0;
             const ms = isoMatch[7] ? parseInt(isoMatch[7].slice(0, 3).padEnd(3, '0'), 10) : 0;
+            const ampm = isoMatch[8] ? isoMatch[8].toUpperCase() : null;
+            if (ampm === 'PM' && hour < 12) hour += 12;
+            if (ampm === 'AM' && hour === 12) hour = 0;
             const constructed = new Date(year, month - 1, day, hour, minute, second, ms);
             if (!isNaN(constructed.getTime())) return constructed;
           }
 
-          // Malaysian / International DD/MM/YYYY HH:mm:ss
+          // 3. DD/MM/YYYY or DD-MM-YYYY or DD.MM.YYYY [HH:mm[:ss[.SSS]] [AM/PM]]
           const dmyMatch = trimmed.match(
-            /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})(?:[T\s]+(\d{1,2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?\s*(AM|PM)?)?$/i
+            /^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})(?:[T\s]+(\d{1,2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?\s*(AM|PM)?)?$/i
           );
           if (dmyMatch) {
             let day = parseInt(dmyMatch[1], 10);
@@ -654,10 +675,93 @@
             if (!isNaN(constructed.getTime())) return constructed;
           }
 
+          // 4. Named Month: "31-Oct-2026 23:41:55" or "31 Oct 2026 11:41 PM"
+          const namedMonthMatch = trimmed.match(
+            /^(\d{1,2})[\s\-\/]([A-Za-z]{3,9})[\s\-\/](\d{2,4})(?:[T\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?)?$/i
+          );
+          if (namedMonthMatch) {
+            const day = parseInt(namedMonthMatch[1], 10);
+            const mKey = namedMonthMatch[2].toLowerCase();
+            const month = MONTH_NAMES[mKey];
+            let year = parseInt(namedMonthMatch[3], 10);
+            if (year < 100) year += 2000;
+            if (month) {
+              let hour = namedMonthMatch[4] ? parseInt(namedMonthMatch[4], 10) : 0;
+              const minute = namedMonthMatch[5] ? parseInt(namedMonthMatch[5], 10) : 0;
+              const second = namedMonthMatch[6] ? parseInt(namedMonthMatch[6], 10) : 0;
+              const ampm = namedMonthMatch[7] ? namedMonthMatch[7].toUpperCase() : null;
+              if (ampm === 'PM' && hour < 12) hour += 12;
+              if (ampm === 'AM' && hour === 12) hour = 0;
+              const constructed = new Date(year, month - 1, day, hour, minute, second);
+              if (!isNaN(constructed.getTime())) return constructed;
+            }
+          }
+
+          // 5. Native Date fallback
           const native = new Date(trimmed);
-          if (!isNaN(native.getTime())) return native;
+          if (!isNaN(native.getTime()) && native.getFullYear() >= 1990) return native;
         }
         return null;
+      }
+
+      // Parse separate time-of-day cell (Excel fractional day 0..1 or "HH:mm[:ss] [AM/PM]")
+      function parseTimeOnlySeconds(val) {
+        if (val === null || val === undefined || val === '') return null;
+        if (typeof val === 'number' && isFinite(val)) {
+          const frac = val >= 1 ? val - Math.floor(val) : val;
+          if (frac > 0 && frac < 1) return Math.round(frac * 86400);
+        }
+        if (val instanceof Date && !isNaN(val.getTime())) {
+          return val.getHours() * 3600 + val.getMinutes() * 60 + val.getSeconds();
+        }
+        const str = String(val).trim();
+        const m = str.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
+        if (m) {
+          let h = parseInt(m[1], 10);
+          const min = parseInt(m[2], 10);
+          const sec = m[3] ? parseInt(m[3], 10) : 0;
+          const ampm = m[4] ? m[4].toUpperCase() : null;
+          if (ampm === 'PM' && h < 12) h += 12;
+          if (ampm === 'AM' && h === 12) h = 0;
+          return h * 3600 + min * 60 + sec;
+        }
+        return null;
+      }
+
+      // Combine a Date column + optional separate Time column
+      function combineDateAndTime(dateVal, timeVal) {
+        const base = parseFlexibleDate(dateVal);
+        if (!base) return null;
+        if (timeVal !== null && timeVal !== undefined && timeVal !== '') {
+          const secs = parseTimeOnlySeconds(timeVal);
+          if (secs !== null) {
+            const h = Math.floor(secs / 3600);
+            const m = Math.floor((secs % 3600) / 60);
+            const s = secs % 60;
+            return new Date(base.getFullYear(), base.getMonth(), base.getDate(), h, m, s);
+          }
+        }
+        return base;
+      }
+
+      // Parse pre-calculated LOS / Duration column if present (e.g., "03:32:00", "211 mins", "3.5 hrs", or numeric minutes)
+      function parseDurationHours(val) {
+        if (val === null || val === undefined || val === '') return null;
+        if (typeof val === 'number' && isFinite(val) && val > 0) {
+          // If fraction of day (< 2) vs minutes (> 2)
+          return val <= 2 ? val * 24 : val / 60;
+        }
+        const str = String(val).trim().toLowerCase();
+        const hms = str.match(/^(\d{1,3}):(\d{2})(?::(\d{2}))?$/);
+        if (hms) {
+          return parseInt(hms[1], 10) + parseInt(hms[2], 10) / 60 + (hms[3] ? parseInt(hms[3], 10) / 3600 : 0);
+        }
+        const numMatch = str.match(/(\d+(?:\.\d+)?)/);
+        if (!numMatch) return null;
+        const n = parseFloat(numMatch[1]);
+        if (str.includes('hr') || str.includes('hour') || str.includes('jam')) return n;
+        if (str.includes('min') || str.includes('minit')) return n / 60;
+        return n > 24 ? n / 60 : n;
       }
 
       function parseFlexibleAge(val) {
@@ -710,14 +814,14 @@
       }
 
       // ======================================================================
-      // STEP 1: STAGE UPLOADED EXCEL WORKBOOK (NO AUTO-RUN UNTIL BUTTON PUSH)
+      // STEP 1: SELF-HEALING HEADER & DATA-DRIVEN COLUMN DETECTION
       // ======================================================================
 
       function extractSheetTableAndMapping(sheet) {
         const matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: null });
         if (!matrix || matrix.length === 0) return { headers: [], records: [], mapping: {} };
 
-        const keywords = ['encounter', 'bed', 'patient', 'age', 'race', 'discharge', 'visit', 'date', 'time', 'zone', 'ward', 'id', 'umur', 'nama', 'katil', 'tarikh', 'masa'];
+        const keywords = ['encounter', 'bed', 'patient', 'age', 'race', 'discharge', 'visit', 'date', 'time', 'zone', 'ward', 'id', 'umur', 'nama', 'katil', 'tarikh', 'masa', 'los', 'duration'];
         let bestHeaderIdx = 0;
         let bestScore = -1;
 
@@ -764,27 +868,73 @@
           records.push(obj);
         }
 
-        const findCol = (patterns, excludes = []) => {
+        // Helper: verify a candidate column actually has non-empty values in the data rows
+        const countValidDatesInCol = (colName) => {
+          if (!colName) return 0;
+          let count = 0;
+          const limit = Math.min(40, records.length);
+          for (let i = 0; i < limit; i++) {
+            if (parseFlexibleDate(records[i][colName]) !== null) count++;
+          }
+          return count;
+        };
+
+        const findCol = (patterns, excludes = [], requireDates = false) => {
           for (const pat of patterns) {
             const exact = uniqueHeaders.find((h) => h.toLowerCase().trim() === pat);
-            if (exact) return exact;
+            if (exact && (!requireDates || countValidDatesInCol(exact) > 0)) return exact;
           }
           for (const pat of patterns) {
             const partial = uniqueHeaders.find((h) => {
               const lower = h.toLowerCase();
               if (excludes.some((ex) => lower.includes(ex))) return false;
-              return lower.includes(pat);
+              if (!lower.includes(pat)) return false;
+              return !requireDates || countValidDatesInCol(h) > 0;
             });
             if (partial) return partial;
           }
           return '';
         };
 
+        let encounterDate = findCol(
+          ['encounter date', 'arrival date', 'registration date', 'reg date', 'check in', 'start date', 'visit date', 'tarikh daftar', 'tarikh masuk', 'encounter', 'arrival', 'date'],
+          ['discharge', 'decide', 'birth', 'dob', 'out', 'keluar', 'discaj', 'id', 'time'],
+          true
+        );
+        let dischargeDate = findCol(
+          ['discharge date', 'discharged date', 'date discharge', 'discharge time', 'check out', 'depart', 'end date', 'exit', 'tarikh keluar', 'tarikh discaj', 'discharge', 'checkout', 'completed'],
+          ['decide', 'id', 'reason', 'status', 'type'],
+          true
+        );
+
+        // Content-Based Auto-Recovery: scan all columns for actual date/timestamp columns if either is still missing
+        if (!encounterDate || !dischargeDate) {
+          const dateCols = uniqueHeaders
+            .filter((h) => !/birth|dob|decide/i.test(h))
+            .map((h) => ({ header: h, validCount: countValidDatesInCol(h) }))
+            .filter((x) => x.validCount > 0);
+
+          if (!encounterDate && dateCols.length >= 1) {
+            encounterDate = dateCols[0].header;
+          }
+          if (!dischargeDate && dateCols.length >= 2) {
+            const second = dateCols.find((d) => d.header !== encounterDate);
+            if (second) dischargeDate = second.header;
+          }
+        }
+
+        const encounterTime = findCol(['encounter time', 'arrival time', 'reg time', 'time in', 'masa daftar', 'masa masuk'], ['discharge', 'out', 'keluar']);
+        const dischargeTime = findCol(['discharge time', 'time out', 'checkout time', 'masa keluar', 'masa discaj'], ['in', 'masuk']);
+        const directLos = findCol(['los', 'length of stay', 'turnaround', 'duration', 'tat', 'tempoh'], []);
+
         const mapping = {
           encounterId: findCol(['encounter id', 'enc id', 'visit id', 'reg no', 'encounter', 'id', 'mrn', 'no. pendaftaran']),
           bedNo: findCol(['bed no.', 'bed no', 'bed number', 'bed', 'zone', 'ward', 'cubicle', 'bay', 'katil', 'zon', 'lokasi']),
-          encounterDate: findCol(['encounter date', 'arrival date', 'registration date', 'reg date', 'check in', 'start date', 'visit date', 'date', 'tarikh', 'masa', 'time in'], ['discharge', 'decide', 'birth', 'dob', 'out']),
-          dischargeDate: findCol(['discharge date', 'discharge', 'check out', 'depart', 'end date', 'exit', 'keluar', 'time out']),
+          encounterDate,
+          encounterTime,
+          dischargeDate,
+          dischargeTime,
+          directLos,
           age: findCol(['age', 'umur', 'patient age']),
           race: findCol(['race', 'ethnic', 'bangsa', 'nationality', 'citizen', 'keturunan']),
           visitType: findCol(['no. of visit', 'visit type', 'no of visit', 'visit', 'attendance', 'case type', 'lawatan']),
@@ -809,7 +959,7 @@
           return;
         }
 
-        showStatusBanner('info', `Reading "${file.name}"...`, 'Staging worksheets and detecting columns. Analysis will start when you push "2. Start Full Analysis".', 30);
+        showStatusBanner('info', `Reading "${file.name}"...`, 'Staging worksheets and detecting date/timestamp columns. Analysis will start when you push "2. Start Full Analysis".', 30);
         await nextPaintFrame();
 
         try {
@@ -851,7 +1001,7 @@
           showStatusBanner(
             'warning',
             `File Staged: "${file.name}" (${chosen.records.length.toLocaleString()} Rows Ready)`,
-            'Verify the worksheet or Columns drawer if needed, then push "2. Start Full Analysis" to run all statistics, generate the PDF, and save to Google Sheets.'
+            `Detected Arrival: "${chosen.mapping.encounterDate || 'Not Found'}" | Discharge: "${chosen.mapping.dischargeDate || 'Not Found'}". Push "2. Start Full Analysis" to calculate all LOS & statistical tables.`
           );
         } catch (err) {
           console.error(err);
@@ -883,26 +1033,82 @@
       }
 
       // ======================================================================
-      // STEP 2: FULL STATISTICAL ANALYSIS ENGINE (TRIGGERED BY ANALYSIS BUTTON)
+      // STEP 2: FULL STATISTICAL ANALYSIS ENGINE (WITH ROBUST LOS CALCULATION)
       // ======================================================================
 
       function normalizeEtdRecords(rawRows, mapping) {
         const records = [];
-        if (!rawRows || rawRows.length === 0) return records;
+        let validEncDateCount = 0;
+        let validDisDateCount = 0;
+        let positiveLosCount = 0;
+
+        if (!rawRows || rawRows.length === 0) {
+          return { records, diagnostics: { validEncDateCount, validDisDateCount, positiveLosCount } };
+        }
 
         rawRows.forEach((row, idx) => {
-          const encDate = parseFlexibleDate(mapping.encounterDate ? row[mapping.encounterDate] : null);
-          const disDate = parseFlexibleDate(mapping.dischargeDate ? row[mapping.dischargeDate] : null);
+          const encDate = combineDateAndTime(
+            mapping.encounterDate ? row[mapping.encounterDate] : null,
+            mapping.encounterTime ? row[mapping.encounterTime] : null
+          );
+          let disDate = combineDateAndTime(
+            mapping.dischargeDate ? row[mapping.dischargeDate] : null,
+            mapping.dischargeTime ? row[mapping.dischargeTime] : null
+          );
+
+          // Handle time-only Discharge column when paired with Encounter Date
+          if (encDate && !disDate && mapping.dischargeDate) {
+            const disSecs = parseTimeOnlySeconds(row[mapping.dischargeDate]);
+            if (disSecs !== null) {
+              const h = Math.floor(disSecs / 3600);
+              const m = Math.floor((disSecs % 3600) / 60);
+              const s = disSecs % 60;
+              disDate = new Date(encDate.getFullYear(), encDate.getMonth(), encDate.getDate(), h, m, s);
+              if (disDate < encDate) {
+                disDate = new Date(disDate.getTime() + 86400 * 1000); // Midnight rollover
+              }
+            }
+          }
+
+          if (encDate) validEncDateCount++;
+          if (disDate) validDisDateCount++;
+
           const bedRaw = mapping.bedNo ? String(row[mapping.bedNo] || '').trim() : '';
           const encIdRaw = mapping.encounterId ? String(row[mapping.encounterId] || '').trim() : '';
-
-          if (!encDate && !bedRaw && !encIdRaw && Object.values(row).every((v) => v === null || String(v).trim() === '')) return;
+          if (!encDate && !disDate && !bedRaw && !encIdRaw && Object.values(row).every((v) => v === null || String(v).trim() === '')) return;
 
           const effectiveEncDate = encDate || disDate || new Date();
-          const effectiveDisDate = disDate || effectiveEncDate;
+          let effectiveDisDate = disDate;
 
-          let losHours = (effectiveDisDate - effectiveEncDate) / (1000 * 60 * 60);
-          if (!isFinite(losHours) || losHours < 0) losHours = 0;
+          let losHours = null;
+          if (encDate && disDate) {
+            let diffHrs = (disDate.getTime() - encDate.getTime()) / (1000 * 60 * 60);
+            // If same calendar date with time-only midnight wrap (e.g. 23:41 -> 01:00 on same date)
+            if (diffHrs < 0 && diffHrs > -24 && encDate.getFullYear() === disDate.getFullYear() && encDate.getMonth() === disDate.getMonth() && encDate.getDate() === disDate.getDate()) {
+              effectiveDisDate = new Date(disDate.getTime() + 86400 * 1000);
+              diffHrs = (effectiveDisDate.getTime() - encDate.getTime()) / (1000 * 60 * 60);
+            }
+            if (isFinite(diffHrs) && diffHrs >= 0) {
+              losHours = diffHrs;
+            }
+          }
+
+          // Fallback to direct LOS / Duration column if Discharge Date was missing
+          if (losHours === null && mapping.directLos) {
+            const directHrs = parseDurationHours(row[mapping.directLos]);
+            if (directHrs !== null && isFinite(directHrs) && directHrs >= 0) {
+              losHours = directHrs;
+              effectiveDisDate = new Date(effectiveEncDate.getTime() + Math.round(losHours * 3600 * 1000));
+            }
+          }
+
+          if (losHours === null || !isFinite(losHours) || losHours < 0) {
+            losHours = 0;
+          }
+          if (!effectiveDisDate) {
+            effectiveDisDate = effectiveEncDate;
+          }
+          if (losHours > 0) positiveLosCount++;
 
           const zone = categorizeClinicalZone(bedRaw);
           const hour = effectiveEncDate.getHours();
@@ -951,7 +1157,10 @@
           });
         });
 
-        return records;
+        return {
+          records,
+          diagnostics: { validEncDateCount, validDisDateCount, positiveLosCount }
+        };
       }
 
       function computeEtdStatistics(records, sourceName, extraHeaders = []) {
@@ -985,7 +1194,6 @@
           losList: []
         }));
 
-        // Analyze ALL extra populated columns (both categorical & numeric)
         const extraColData = {};
         extraHeaders.forEach((h) => {
           extraColData[h] = { catCounts: {}, numValues: [] };
@@ -1087,6 +1295,8 @@
             const med = calculateMedian(list);
             const q25 = calculateQuantile(list, 0.25);
             const q75 = calculateQuantile(list, 0.75);
+            const over4Cnt = list.filter((v) => v > 4).length;
+            const over6Cnt = list.filter((v) => v > 6).length;
             return {
               zone,
               shortZone: zone.replace(/\s*\([^)]*\)/, ''),
@@ -1096,9 +1306,13 @@
               meanLos: Number(mean.toFixed(2)),
               medianLos: Number(med.toFixed(2)),
               medianMins: Math.round(med * 60),
+              iqr25: Number(q25.toFixed(1)),
+              iqr75: Number(q75.toFixed(1)),
               iqrText: `${q25.toFixed(1)}–${q75.toFixed(1)}h`,
-              pctOver4: Number(((list.filter((v) => v > 4).length / list.length) * 100).toFixed(1)),
-              pctOver6: Number(((list.filter((v) => v > 6).length / list.length) * 100).toFixed(1))
+              over4Count: over4Cnt,
+              over6Count: over6Cnt,
+              pctOver4: Number(((over4Cnt / list.length) * 100).toFixed(1)),
+              pctOver6: Number(((over6Cnt / list.length) * 100).toFixed(1))
             };
           })
           .sort((a, b) => b.encounters - a.encounters);
@@ -1187,7 +1401,6 @@
           });
         });
 
-        // Separate extra columns into Numeric Summaries and Categorical Frequency Tables
         const dynamicNumericTables = [];
         const dynamicCategoricalTables = [];
         extraHeaders.forEach((colName) => {
@@ -1325,11 +1538,13 @@
           { key: 'encounterId', label: 'Encounter ID' },
           { key: 'bedNo', label: 'Bed No. / Clinical Zone' },
           { key: 'encounterDate', label: 'Encounter / Arrival Date' },
+          { key: 'encounterTime', label: 'Encounter Time (Optional)' },
           { key: 'dischargeDate', label: 'Discharge Date' },
+          { key: 'dischargeTime', label: 'Discharge Time (Optional)' },
+          { key: 'directLos', label: 'Direct LOS / Duration (Fallback)' },
           { key: 'age', label: 'Patient Age' },
           { key: 'race', label: 'Race / Nationality' },
-          { key: 'visitType', label: 'Visit Type (1st / Follow Up)' },
-          { key: 'patientName', label: 'Patient Name (Repeat Audit Only)' }
+          { key: 'visitType', label: 'Visit Type (1st / Follow Up)' }
         ];
 
         const extraSummary = document.getElementById('extraColsSummary');
@@ -1435,7 +1650,7 @@
         const kpiCards = [
           { title: 'Encounters', value: metrics.totalEncounters.toLocaleString(), sub: `Avg <strong>${metrics.avgDailyVisits}</strong> / day (${metrics.activeDays}d)`, color: 'text-slate-900' },
           { title: 'Unique Patients', value: metrics.uniquePatientsCount.toLocaleString(), sub: `<strong>${(metrics.repeatStats.twoVisitPatients + metrics.repeatStats.threePlusPatients).toLocaleString()}</strong> repeat visitors`, color: 'text-slate-900' },
-          { title: 'Median LOS', value: `${metrics.medianLos.toFixed(2)} hrs`, sub: `IQR: ${metrics.iqr25}–${metrics.iqr75} hrs`, color: 'text-emerald-700' },
+          { title: 'Median LOS', value: `${metrics.medianLos.toFixed(2)} hrs`, sub: `IQR (25–75%): ${metrics.iqr25}–${metrics.iqr75} hrs`, color: 'text-emerald-700' },
           { title: 'Mean LOS', value: `${metrics.avgLos.toFixed(2)} hrs`, sub: `SD: ${metrics.stdLos}h | ${metrics.uniqueBedsCount} beds`, color: 'text-slate-900' },
           { title: 'LOS > 4 Hours', value: `${metrics.pctOver4Hours}%`, sub: `${metrics.over4Count.toLocaleString()} cases (>6h: ${metrics.pctOver6Hours}%)`, color: 'text-red-600' },
           { title: 'Peak Surge', value: metrics.peakHourLabel, sub: `${metrics.peakHourCount} arrivals | Top: ${metrics.busiestDayLabel.slice(0, 3)}`, color: 'text-blue-700' }
@@ -1459,7 +1674,7 @@
         // 3. Render 7x24 Arrival Surge Heatmap
         renderHeatmap(charts.heatmapMatrix, charts.maxHeatmapCell);
 
-        // 4. Render All Statistical Tables
+        // 4. Render Clinical Zone Table (Mean LOS, Median LOS, IQR 25-75%, >4 Hours, >6 Hours)
         document.getElementById('tableZoneBody').innerHTML = tables.zoneData
           .map(
             (z) => `
@@ -1470,11 +1685,11 @@
               </td>
               <td class="py-3 px-4 text-right font-semibold">${z.encounters.toLocaleString()}</td>
               <td class="py-3 px-4 text-right text-slate-500">${z.sharePct}%</td>
-              <td class="py-3 px-4 text-right">${z.meanLos.toFixed(2)} hrs</td>
+              <td class="py-3 px-4 text-right font-medium text-slate-800">${z.meanLos.toFixed(2)} hrs <span class="text-xs text-slate-400">(${Math.round(z.meanLos * 60)}m)</span></td>
               <td class="py-3 px-4 text-right font-bold text-slate-900">${z.medianLos.toFixed(2)} hrs <span class="text-xs font-normal text-slate-400">(${z.medianMins}m)</span></td>
-              <td class="py-3 px-4 text-right text-slate-500">${escapeHtml(z.iqrText)}</td>
-              <td class="py-3 px-4 text-right"><span class="px-2 py-0.5 rounded-full text-xs font-bold ${z.pctOver4 > 50 ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}">${z.pctOver4}%</span></td>
-              <td class="py-3 px-4 text-right text-slate-500">${z.pctOver6}%</td>
+              <td class="py-3 px-4 text-right font-mono text-xs text-slate-600">${escapeHtml(z.iqrText)}</td>
+              <td class="py-3 px-4 text-right"><span class="px-2 py-0.5 rounded-full text-xs font-bold ${z.pctOver4 > 50 ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}">${z.pctOver4}%</span> <span class="text-[11px] text-slate-400">(${z.over4Count})</span></td>
+              <td class="py-3 px-4 text-right text-slate-700 font-semibold">${z.pctOver6}% <span class="text-[11px] font-normal text-slate-400">(${z.over6Count})</span></td>
             </tr>
           `
           )
@@ -1564,7 +1779,6 @@
           )
           .join('');
 
-        // Render Dynamic Numeric Extra Columns Summary
         const numContainer = document.getElementById('dynamicExtraNumericContainer');
         if (tables.dynamicNumericTables && tables.dynamicNumericTables.length > 0) {
           numContainer.classList.remove('hidden');
@@ -1601,7 +1815,6 @@
           numContainer.classList.add('hidden');
         }
 
-        // Render Dynamic Categorical Extra Columns
         const extraContainer = document.getElementById('dynamicExtraAnalyticsContainer');
         if (tables.dynamicCategoricalTables && tables.dynamicCategoricalTables.length > 0) {
           extraContainer.classList.remove('hidden');
@@ -1945,7 +2158,7 @@
               body,
               margin: { left: margin, right: margin },
               theme: 'grid',
-              styles: { fontSize: 8, cellPadding: 2.2, textColor: [30, 41, 59], lineColor: [203, 213, 225], lineWidth: 0.2 },
+              styles: { fontSize: 7.8, cellPadding: 2.1, textColor: [30, 41, 59], lineColor: [203, 213, 225], lineWidth: 0.2 },
               headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold' },
               alternateRowStyles: { fillColor: [248, 250, 252] },
               columnStyles
@@ -1971,9 +2184,9 @@
         let y = 34;
         const kpis = [
           { label: 'TOTAL ENCOUNTERS', val: metrics.totalEncounters.toLocaleString(), sub: `${metrics.uniquePatientsCount.toLocaleString()} unique patients` },
-          { label: 'MEDIAN LOS (IQR)', val: `${metrics.medianLos.toFixed(2)} hrs`, sub: `IQR: ${metrics.iqr25}–${metrics.iqr75} hrs` },
+          { label: 'MEDIAN LOS (IQR)', val: `${metrics.medianLos.toFixed(2)} hrs`, sub: `IQR (25–75%): ${metrics.iqr25}–${metrics.iqr75} hrs` },
           { label: 'MEAN LOS & VOLUME', val: `${metrics.avgLos.toFixed(2)} hrs`, sub: `${metrics.avgDailyVisits} visits/day (${metrics.uniqueBedsCount} beds)` },
-          { label: 'EXCEEDING 4 HOURS', val: `${metrics.pctOver4Hours}%`, sub: `>6h: ${metrics.pctOver6Hours}% | >12h: ${metrics.pctOver12Hours}%` }
+          { label: 'EXCEEDING 4 & 6 HRS', val: `>4h: ${metrics.pctOver4Hours}%`, sub: `>6h: ${metrics.pctOver6Hours}% | >12h: ${metrics.pctOver12Hours}%` }
         ];
         const gap = 3;
         const cardW = (contentWidth - gap * 3) / 4;
@@ -1986,7 +2199,7 @@
           doc.setFontSize(6.8);
           doc.setTextColor(100, 116, 139);
           doc.text(k.label, x + 2.8, y + 5.2);
-          doc.setFontSize(11.5);
+          doc.setFontSize(11);
           doc.setTextColor(15, 23, 42);
           doc.text(k.val, x + 2.8, y + 12);
           doc.setFont('helvetica', 'normal');
@@ -2003,9 +2216,18 @@
 
         y = renderTable(
           y + 3,
-          ['Clinical Zone', 'Encounters', 'Share %', 'Mean LOS', 'Median LOS', 'IQR', '% > 4 Hrs'],
-          tables.zoneData.map((z) => [z.zone, z.encounters.toLocaleString(), `${z.sharePct}%`, `${z.meanLos.toFixed(2)}h`, `${z.medianLos.toFixed(2)}h (${z.medianMins}m)`, z.iqrText, `${z.pctOver4}%`]),
-          { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' } }
+          ['Clinical Zone', 'Encounters', 'Share %', 'Mean LOS', 'Median LOS', 'IQR (25–75%)', '> 4 Hours', '> 6 Hours'],
+          tables.zoneData.map((z) => [
+            z.zone,
+            z.encounters.toLocaleString(),
+            `${z.sharePct}%`,
+            `${z.meanLos.toFixed(2)}h`,
+            `${z.medianLos.toFixed(2)}h (${z.medianMins}m)`,
+            z.iqrText,
+            `${z.pctOver4}% (${z.over4Count})`,
+            `${z.pctOver6}% (${z.over6Count})`
+          ]),
+          { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' }, 7: { halign: 'right' } }
         );
 
         const imgZoneVol = safeCanvasImage('chartZoneVolume');
@@ -2155,17 +2377,17 @@
         pushRow(['Metric', 'Value', 'Benchmark / Notes'], true);
         pushRow(['Total Encounters', metrics.totalEncounters, `${metrics.avgDailyVisits} avg visits/day across ${metrics.activeDays} active days`]);
         pushRow(['Unique Patients', metrics.uniquePatientsCount, `${metrics.repeatStats.twoVisitPatients + metrics.repeatStats.threePlusPatients} repeat visitors`]);
-        pushRow(['Median Length of Stay (LOS)', `${metrics.medianLos} hrs`, `IQR: ${metrics.iqr25}–${metrics.iqr75} hrs`]);
+        pushRow(['Median Length of Stay (LOS)', `${metrics.medianLos} hrs`, `IQR (25–75%): ${metrics.iqr25}–${metrics.iqr75} hrs`]);
         pushRow(['Mean Length of Stay (LOS)', `${metrics.avgLos} hrs`, `SD: ${metrics.stdLos}h | ${metrics.uniqueBedsCount} active beds`]);
-        pushRow(['Encounters > 4 Hours', `${metrics.over4Count} (${metrics.pctOver4Hours}%)`, `>6 hrs: ${metrics.pctOver6Hours}% | >12 hrs: ${metrics.pctOver12Hours}%`]);
+        pushRow(['Encounters > 4 Hours', `${metrics.over4Count} (${metrics.pctOver4Hours}%)`, `>6 hrs: ${metrics.over6Count} (${metrics.pctOver6Hours}%) | >12 hrs: ${metrics.pctOver12Hours}%`]);
         pushRow(['Peak Arrival Hour', `${metrics.peakHourLabel} (${metrics.peakHourCount} visits)`, `Busiest Day: ${metrics.busiestDayLabel} (${metrics.busiestDayCount} visits)`]);
         pushRow(['Busiest / Quietest Date', `Busiest: ${metrics.busiestDateLabel}`, `Quietest: ${metrics.quietestDateLabel}`]);
         pushRow([]);
 
         pushRow(['CLINICAL ZONE PERFORMANCE'], true);
-        pushRow(['Clinical Zone', 'Encounters', 'Share %', 'Mean LOS (hrs)', 'Median LOS (hrs)', 'Median (mins)', 'IQR', '> 4 Hrs %', '> 6 Hrs %'], true);
+        pushRow(['Clinical Zone', 'Encounters', 'Share %', 'Mean LOS (hrs)', 'Median LOS (hrs)', 'Median (mins)', 'IQR (25–75%)', '> 4 Hrs %', '> 4 Hrs Count', '> 6 Hrs %', '> 6 Hrs Count'], true);
         tables.zoneData.forEach((z) => {
-          pushRow([z.zone, z.encounters, z.sharePct, z.meanLos, z.medianLos, z.medianMins, z.iqrText, z.pctOver4, z.pctOver6]);
+          pushRow([z.zone, z.encounters, z.sharePct, z.meanLos, z.medianLos, z.medianMins, z.iqrText, z.pctOver4, z.over4Count, z.pctOver6, z.over6Count]);
         });
         pushRow([]);
 
@@ -2231,7 +2453,7 @@
         return { sheetName, rows, styledHeaderRows };
       }
 
-      async function pushAnalysisToGoogleSheet(stats, records, pdfInfo = null) {
+      async function pushAnalysisToGoogleSheet(stats, records, pdfInfo = null, warnPrefix = '') {
         const url = state.googleSheets.appsScriptUrl.trim();
         if (!url || !stats) return null;
 
@@ -2260,9 +2482,9 @@
           actions.push({ label: 'Open New Google Sheet Tab ↗', href: data.spreadsheetUrl || TARGET_SPREADSHEET_URL, primary: true });
 
           showStatusBanner(
-            'success',
+            warnPrefix ? 'warning' : 'success',
             `Analysis Complete (${records.length.toLocaleString()} Encounters) & Saved to New Sheet "${data.sheetName}"`,
-            `All dashboard tables and charts are populated below${pdfInfo ? `, PDF "${pdfInfo.filename}" was downloaded,` : ''} and ${data.rowsWritten.toLocaleString()} rows were written to Google Sheets.`,
+            `${warnPrefix}All dashboard tables and charts are populated below${pdfInfo ? `, PDF "${pdfInfo.filename}" was downloaded,` : ''} and ${data.rowsWritten.toLocaleString()} rows were written to Google Sheets.`,
             null,
             actions
           );
@@ -2273,7 +2495,7 @@
           showStatusBanner(
             'warning',
             'Analysis Complete (Google Sheet Sync Warning)',
-            `All data is analyzed below${pdfInfo ? ` and PDF "${pdfInfo.filename}" was downloaded` : ''}, but Google Sheets returned: ${err.message}`,
+            `${warnPrefix}All data is analyzed below${pdfInfo ? ` and PDF "${pdfInfo.filename}" was downloaded` : ''}, but Google Sheets returned: ${err.message}`,
             null,
             actions
           );
@@ -2350,14 +2572,24 @@
         startBtn.classList.remove('ready-pulse');
 
         try {
-          // Phase 1: Normalize Timestamps & Compute All Statistical Matrices
-          showStatusBanner('info', `Analyzing ${state.rawRecords.length.toLocaleString()} Rows...`, 'Computing turnaround times (LOS), clinical zones, shifts, daily trends, demographics, and custom columns...', 35);
+          showStatusBanner('info', `Analyzing ${state.rawRecords.length.toLocaleString()} Rows...`, 'Computing Mean LOS, Median LOS, IQR (25–75%), >4h & >6h breach rates, clinical zones, shifts, demographics, and custom columns...', 35);
           await nextPaintFrame();
 
-          state.allCleanedRecords = normalizeEtdRecords(state.rawRecords, state.columnMapping);
+          const normResult = normalizeEtdRecords(state.rawRecords, state.columnMapping);
+          state.allCleanedRecords = normResult.records;
+          const diag = normResult.diagnostics;
+
           if (state.allCleanedRecords.length === 0) {
             document.getElementById('columnMapperPanel').classList.remove('hidden');
             throw new Error('Could not parse records with current column mapping. Please verify the Columns & Extras drawer above and click Save Mapping & Re-Analyze.');
+          }
+
+          let losWarningPrefix = '';
+          if (diag.positiveLosCount === 0) {
+            document.getElementById('columnMapperPanel').classList.remove('hidden');
+            const sampleEnc = state.columnMapping.encounterDate ? state.rawRecords[0]?.[state.columnMapping.encounterDate] : 'N/A';
+            const sampleDis = state.columnMapping.dischargeDate ? state.rawRecords[0]?.[state.columnMapping.dischargeDate] : 'N/A';
+            losWarningPrefix = `Warning: 0 rows had Discharge Date > Encounter Date (Arrival col "${state.columnMapping.encounterDate || 'None'}" = "${sampleEnc}", Discharge col "${state.columnMapping.dischargeDate || 'None'}" = "${sampleDis}"). Adjust columns in the drawer above and click Save Mapping & Re-Analyze. `;
           }
 
           resetAllFilters();
@@ -2373,9 +2605,9 @@
 
           applyFiltersAndRender(true);
           state.isAnalyzed = true;
-          await nextPaintFrame(); // Ensure browser paints all charts & tables on screen first!
+          await nextPaintFrame();
 
-          // Phase 2: Create & Download PDF Report (if checked)
+          // Create & Download PDF Report (if checked)
           let pdfInfo = null;
           if (runPdfExport && state.googleSheets.autoPdf) {
             showStatusBanner('info', 'Creating & Downloading Multi-Page PDF Report...', 'Embedding rendered charts, pivot tables, and PDPA-cleaned dataset...', 85);
@@ -2383,15 +2615,15 @@
             pdfInfo = generateAndDownloadPdf(state.stats, state.allCleanedRecords);
           }
 
-          // Phase 3: Push Complete Analysis to New Google Sheet Tab (if checked)
+          // Push Complete Analysis to New Google Sheet Tab (if checked)
           if (runGoogleSheetSync && state.googleSheets.autoSync && state.googleSheets.appsScriptUrl.trim()) {
-            await pushAnalysisToGoogleSheet(state.stats, state.allCleanedRecords, pdfInfo);
+            await pushAnalysisToGoogleSheet(state.stats, state.allCleanedRecords, pdfInfo, losWarningPrefix);
           } else {
             const actions = pdfInfo ? [{ label: 'Open / Re-Download PDF ↗', href: pdfInfo.blobUrl, primary: true }] : [];
             showStatusBanner(
-              'success',
+              losWarningPrefix ? 'warning' : 'success',
               `Full Analysis Complete (${state.allCleanedRecords.length.toLocaleString()} Encounters)!`,
-              `All dashboard tables and charts are populated below${pdfInfo ? ` and PDF "${pdfInfo.filename}" has been downloaded` : ''}.`,
+              `${losWarningPrefix}All dashboard tables and charts are populated below${pdfInfo ? ` and PDF "${pdfInfo.filename}" has been downloaded` : ''}.`,
               null,
               actions
             );
@@ -2466,7 +2698,10 @@
           age: 'Age',
           race: 'Race',
           encounterDate: 'Encounter Date',
+          encounterTime: '',
           dischargeDate: 'Discharge Date',
+          dischargeTime: '',
+          directLos: '',
           visitType: 'No. of Visit'
         };
 
